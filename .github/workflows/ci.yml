@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        bazel: ["8.x", "9.x"]
+        bazel: ["8.0.0", "8.6.0"]
     steps:
       - uses: actions/checkout@v4
       - uses: bazel-contrib/setup-bazel@0.14.0
@@ -21,35 +21,24 @@ jobs:
       - name: Set Bazel version
         env:
           BAZEL_VERSION: ${{ matrix.bazel }}
-        run: |
-          if [ "$BAZEL_VERSION" = "8.x" ]; then
-            echo "8.6.0" > .bazelversion
-          elif [ "$BAZEL_VERSION" = "9.x" ]; then
-            echo "9.0.0" > .bazelversion
-          fi
+        run: echo "$BAZEL_VERSION" > .bazelversion
       - name: Verify rules analysis
-        run: bazel query '//lean/...'
+        run: bazel query '//lean/...' '//aeneas/...'
 
   build:
-    name: Build example (Bazel ${{ matrix.bazel }}, ${{ matrix.os }})
+    name: Build example (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        bazel: ["8.x"]
     steps:
       - uses: actions/checkout@v4
       - uses: bazel-contrib/setup-bazel@0.14.0
         with:
           bazelisk-version: 1.x
       - name: Set Bazel version
-        env:
-          BAZEL_VERSION: ${{ matrix.bazel }}
-        run: |
-          if [ "$BAZEL_VERSION" = "8.x" ]; then
-            echo "8.6.0" > examples/hello_lean/.bazelversion
-          fi
+        run: echo "8.0.0" > examples/hello_lean/.bazelversion
       - name: Build hello_lean example
         working-directory: examples/hello_lean
         run: bazel build //:hello
