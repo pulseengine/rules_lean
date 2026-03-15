@@ -5,7 +5,7 @@ LeanInfo = provider(
     fields = {
         "srcs": "Source .lean files (list of Files)",
         "stamp": "Verification stamp file (File or None)",
-        "lib_dir": "Directory containing .olean files (File - tree artifact, or None)",
+        "oleans": "Compiled .olean files (list of Files)",
         "lean_path_entries": "Directories to add to LEAN_PATH (list of strings)",
         "all_files": "All files needed as action inputs (depset of Files)",
         "transitive_stamps": "All dependency verification stamps (depset of Files)",
@@ -44,77 +44,81 @@ def _collect_dep_info(deps):
 def _lean_library_impl(ctx):
     toolchain = ctx.toolchains["//lean:toolchain_type"].lean_toolchain_info
 
-    out_dir = ctx.actions.declare_directory(ctx.label.name + ".oleans")
-    stamp = ctx.actions.declare_file(ctx.label.name + ".verified")
-
     dep_path_entries, dep_files, transitive_stamps = _collect_dep_info(ctx.attr.deps)
 
     prefix = _lean_prefix(toolchain)
     stdlib_path = prefix + "/lib/lean/library"
 
-    # LEAN_PATH: stdlib + deps + output dir (for intra-library imports)
-    all_entries = [stdlib_path] + dep_path_entries + [out_dir.path]
-    lean_path_str = ":".join(all_entries)
-
     # Package prefix for computing .olean relative paths
     pkg = ctx.label.package
     pkg_prefix = pkg + "/" if pkg else ""
 
-    extra = " ".join(ctx.attr.extra_flags)
-
-    lines = [
-        "#!/bin/bash",
-        "set -euo pipefail",
-        "",
-    ]
+    # Compile each source file individually (matching rules_rocq_rust pattern).
+    # One ctx.actions.run per file with lean as the executable.
+    compiled_oleans = []
+    olean_dir = None
 
     for src in ctx.files.srcs:
         rel = src.short_path
         if rel.startswith(pkg_prefix):
             rel = rel[len(pkg_prefix):]
         olean_rel = rel[:-5] + ".olean"  # strip ".lean" suffix
-        olean_path = out_dir.path + "/" + olean_rel
 
-        lines.append("mkdir -p $(dirname {op})".format(op = olean_path))
-        if extra:
-            lines.append('"{lean}" {extra} "{src}" -o "{op}"'.format(
-                lean = toolchain.lean.path,
-                extra = extra,
-                src = src.path,
-                op = olean_path,
-            ))
-        else:
-            lines.append('"{lean}" "{src}" -o "{op}"'.format(
-                lean = toolchain.lean.path,
-                src = src.path,
-                op = olean_path,
-            ))
+        olean = ctx.actions.declare_file(ctx.label.name + "_oleans/" + olean_rel)
+        if olean_dir == None:
+            # Compute the base output directory from the first olean's path
+            olean_dir = olean.path[:-(len(olean_rel))]
 
-    lines.extend(["", 'touch "{s}"'.format(s = stamp.path)])
+        # LEAN_PATH: stdlib + deps + our output dir (for intra-library imports)
+        all_entries = [stdlib_path] + dep_path_entries
+        if olean_dir:
+            all_entries.append(olean_dir)
+        lean_path_str = ":".join(all_entries)
 
-    # Write script to file and execute via ctx.actions.run (not run_shell)
-    # to avoid Bazel 8's strict input path validation in run_shell.
-    script = ctx.actions.declare_file(ctx.label.name + "_compile.sh")
-    ctx.actions.write(script, "\n".join(lines), is_executable = True)
+        args = ctx.actions.args()
+        args.add(src)
+        args.add("-o", olean)
+        for flag in ctx.attr.extra_flags:
+            args.add(flag)
 
+        ctx.actions.run(
+            executable = toolchain.lean,
+            arguments = [args],
+            inputs = depset(
+                [src] + compiled_oleans + dep_files,
+                transitive = [depset(toolchain.all_files)],
+            ),
+            outputs = [olean],
+            env = {"LEAN_PATH": lean_path_str},
+            mnemonic = "LeanCompile",
+            progress_message = "Compiling %s" % src.short_path,
+            execution_requirements = {"no-sandbox": "1"},
+        )
+
+        compiled_oleans.append(olean)
+
+    # Stamp file
+    stamp = ctx.actions.declare_file(ctx.label.name + ".verified")
+    stamp_script = ctx.actions.declare_file(ctx.label.name + "_stamp.sh")
+    ctx.actions.write(stamp_script, "#!/bin/bash\ntouch \"$1\"\n", is_executable = True)
     ctx.actions.run(
-        executable = script,
-        inputs = depset(ctx.files.srcs + dep_files + toolchain.all_files),
-        outputs = [out_dir, stamp],
-        env = {"LEAN_PATH": lean_path_str},
-        mnemonic = "LeanCompile",
-        progress_message = "Compiling Lean library %s" % ctx.label,
-        execution_requirements = {"no-sandbox": "1"},
+        executable = stamp_script,
+        arguments = [stamp.path],
+        inputs = compiled_oleans,
+        outputs = [stamp],
+        mnemonic = "LeanStamp",
     )
+
+    lean_path_entries_out = [olean_dir] if olean_dir else []
 
     return [
         DefaultInfo(files = depset([stamp])),
         LeanInfo(
             srcs = ctx.files.srcs,
             stamp = stamp,
-            lib_dir = out_dir,
-            lean_path_entries = [out_dir.path],
-            all_files = depset([out_dir, stamp]),
+            oleans = compiled_oleans,
+            lean_path_entries = lean_path_entries_out,
+            all_files = depset(compiled_oleans + [stamp]),
             transitive_stamps = transitive_stamps,
         ),
     ]
@@ -146,8 +150,6 @@ lean_library = rule(
 def _lean_proof_test_impl(ctx):
     toolchain = ctx.toolchains["//lean:toolchain_type"].lean_toolchain_info
 
-    stamp = ctx.actions.declare_file(ctx.label.name + ".verified")
-
     dep_path_entries, dep_files, _ = _collect_dep_info(ctx.attr.deps)
 
     prefix = _lean_prefix(toolchain)
@@ -156,57 +158,49 @@ def _lean_proof_test_impl(ctx):
     all_entries = [stdlib_path] + dep_path_entries
     lean_path_str = ":".join(all_entries)
 
-    extra = " ".join(ctx.attr.extra_flags)
+    # Typecheck each source file individually
+    check_stamps = []
 
-    lines = [
-        "#!/bin/bash",
-        "set -euo pipefail",
-        "",
-        "PASS=0",
-        "FAIL=0",
-        "",
-    ]
+    for i, src in enumerate(ctx.files.srcs):
+        check_stamp = ctx.actions.declare_file(ctx.label.name + "_check_%d" % i)
 
-    for src in ctx.files.srcs:
-        cmd = '"{lean}"'.format(lean = toolchain.lean.path)
-        if extra:
-            cmd += " " + extra
-        cmd += ' "{src}"'.format(src = src.path)
+        # Write a small script: run lean, then touch stamp
+        check_script = ctx.actions.declare_file(ctx.label.name + "_check_%d.sh" % i)
+        ctx.actions.write(check_script, '#!/bin/bash\n"$1" "$2" && touch "$3"\n', is_executable = True)
 
-        lines.extend([
-            'echo "Checking {sp}..."'.format(sp = src.short_path),
-            "if {cmd}; then".format(cmd = cmd),
-            '    echo "  PASS"',
-            "    PASS=$((PASS + 1))",
-            "else",
-            '    echo "  FAIL"',
-            "    FAIL=$((FAIL + 1))",
-            "fi",
-            "",
-        ])
+        args = ctx.actions.args()
+        args.add(toolchain.lean)
+        args.add(src)
+        args.add(check_stamp)
+        for flag in ctx.attr.extra_flags:
+            args.add(flag)
 
-    lines.extend([
-        'echo ""',
-        'echo "Results: $PASS passed, $FAIL failed"',
-        "",
-        'if [ "$FAIL" -gt 0 ]; then',
-        "    exit 1",
-        "fi",
-        "",
-        'touch "{s}"'.format(s = stamp.path),
-    ])
+        ctx.actions.run(
+            executable = check_script,
+            arguments = [args],
+            inputs = depset(
+                [src] + dep_files,
+                transitive = [depset(toolchain.all_files)],
+            ),
+            outputs = [check_stamp],
+            env = {"LEAN_PATH": lean_path_str},
+            mnemonic = "LeanProofCheck",
+            progress_message = "Verifying %s" % src.short_path,
+            execution_requirements = {"no-sandbox": "1"},
+        )
 
-    script = ctx.actions.declare_file(ctx.label.name + "_check.sh")
-    ctx.actions.write(script, "\n".join(lines), is_executable = True)
+        check_stamps.append(check_stamp)
 
+    # Final stamp
+    stamp = ctx.actions.declare_file(ctx.label.name + ".verified")
+    final_script = ctx.actions.declare_file(ctx.label.name + "_final.sh")
+    ctx.actions.write(final_script, "#!/bin/bash\ntouch \"$1\"\n", is_executable = True)
     ctx.actions.run(
-        executable = script,
-        inputs = depset(ctx.files.srcs + dep_files + toolchain.all_files),
+        executable = final_script,
+        arguments = [stamp.path],
+        inputs = check_stamps,
         outputs = [stamp],
-        env = {"LEAN_PATH": lean_path_str},
-        mnemonic = "LeanProofCheck",
-        progress_message = "Verifying Lean proofs %s" % ctx.label,
-        execution_requirements = {"no-sandbox": "1"},
+        mnemonic = "LeanStamp",
     )
 
     runner = ctx.actions.declare_file(ctx.label.name + "_runner.sh")
@@ -258,7 +252,7 @@ def _lean_prebuilt_library_impl(ctx):
         LeanInfo(
             srcs = [],
             stamp = None,
-            lib_dir = None,
+            oleans = [],
             lean_path_entries = [lean_path_entry] if lean_path_entry else [],
             all_files = depset(files + ([marker] if marker else [])),
             transitive_stamps = depset(),
