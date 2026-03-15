@@ -188,19 +188,40 @@ def _mathlib_repo_impl(rctx):
         if result.return_code != 0:
             fail("Failed to build Mathlib:\n" + result.stderr)
 
+    # Debug: show where oleans ended up
+    result = rctx.execute(["sh", "-c", """
+        echo "=== olean locations ==="
+        find .lake -name '*.olean' 2>/dev/null | head -5
+        echo "=== build/lib dirs ==="
+        find .lake -type d -name lib 2>/dev/null | head -10
+        echo "=== .lake/packages structure ==="
+        ls -d .lake/packages/*/ 2>/dev/null | head -10
+        for d in .lake/packages/*/; do
+            echo "--- $d ---"
+            ls -d "${d}.lake/build/lib" "${d}build/lib" "${d}lib" 2>/dev/null || echo "  (none found)"
+        done
+    """])
+    # buildifier: disable=print
+    print("MATHLIB DEBUG:\n" + result.stdout)
+
     # Consolidate all package oleans into lib/
-    # Use find to locate build/lib directories robustly across Lake versions
     rctx.execute(["mkdir", "-p", "lib"])
     rctx.execute(["sh", "-c", """
         set -e
-        # Find all build/lib directories containing oleans
-        for lib_dir in $(find .lake -type d -name lib -path '*/build/lib' 2>/dev/null); do
-            if ls "$lib_dir"/*.olean "$lib_dir"/*/*.olean 2>/dev/null | head -1 >/dev/null 2>&1; then
-                cp -r "$lib_dir"/* lib/ 2>/dev/null || true
-            fi
+        # Copy from all possible Lake olean locations
+        for d in .lake/packages/*/; do
+            for lib_dir in "${d}.lake/build/lib" "${d}build/lib" "${d}lib"; do
+                if [ -d "$lib_dir" ]; then
+                    cp -r "$lib_dir"/* lib/ 2>/dev/null || true
+                fi
+            done
         done
-        # Debug: show what we got
-        echo "Mathlib olean count: $(find lib -name '*.olean' 2>/dev/null | wc -l)"
+        # Also check root package build
+        if [ -d ".lake/build/lib" ]; then
+            cp -r .lake/build/lib/* lib/ 2>/dev/null || true
+        fi
+        echo "Final olean count: $(find lib -name '*.olean' 2>/dev/null | wc -l)"
+        echo "Top-level dirs in lib/:"
         ls lib/ 2>/dev/null | head -20
     """])
 
