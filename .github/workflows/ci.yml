@@ -10,12 +10,14 @@ jobs:
   verify-rules:
     name: Verify rules load
     runs-on: ubuntu-latest
+    env:
+      USE_BAZEL_VERSION: "8.0.0"
     steps:
       - uses: actions/checkout@v4
       - name: Install bazelisk
         run: |
-          curl -fsSL https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 -o /usr/local/bin/bazel
-          chmod +x /usr/local/bin/bazel
+          sudo curl -fsSL https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 -o /usr/local/bin/bazel
+          sudo chmod +x /usr/local/bin/bazel
       - name: Query lean rules
         run: bazel query '//lean/...'
       - name: Query aeneas rules
@@ -28,16 +30,18 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+    env:
+      USE_BAZEL_VERSION: "8.0.0"
     steps:
       - uses: actions/checkout@v4
       - name: Install bazelisk
         run: |
           if [ "$(uname)" = "Darwin" ]; then
-            curl -fsSL https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-darwin-arm64 -o /usr/local/bin/bazel
+            sudo curl -fsSL https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-darwin-arm64 -o /usr/local/bin/bazel
           else
-            curl -fsSL https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 -o /usr/local/bin/bazel
+            sudo curl -fsSL https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 -o /usr/local/bin/bazel
           fi
-          chmod +x /usr/local/bin/bazel
+          sudo chmod +x /usr/local/bin/bazel
       - name: Build hello_lean example
         working-directory: examples/hello_lean
         run: bazel build //:hello
