@@ -39,6 +39,24 @@ def _collect_dep_info(deps):
         depset(direct = direct_stamps, transitive = transitive_stamp_depsets),
     )
 
+def _copy_src(ctx, src, rel):
+    """Copy a source file into the build output tree (dereferences symlinks).
+
+    Lean 4's moduleNameOfFileName resolves symlinks and validates that the
+    canonical path is within its root directory (cwd). In Bazel, source files
+    in the execroot are symlinks pointing outside, so we must copy them into
+    the build output tree where their canonical path IS within the execroot.
+    """
+    copy = ctx.actions.declare_file(ctx.label.name + "_src/" + rel)
+    ctx.actions.run_shell(
+        inputs = [src],
+        outputs = [copy],
+        command = 'cp -L "$1" "$2"',
+        arguments = [src.path, copy.path],
+        mnemonic = "LeanCopySrc",
+    )
+    return copy
+
 # ── lean_library ─────────────────────────────────────────────────────────────
 
 def _lean_library_impl(ctx):
@@ -49,34 +67,38 @@ def _lean_library_impl(ctx):
     prefix = _lean_prefix(toolchain)
     stdlib_path = prefix + "/lib/lean/library"
 
-    # Package prefix for computing .olean relative paths
     pkg = ctx.label.package
     pkg_prefix = pkg + "/" if pkg else ""
 
-    # Compile each source file individually (matching rules_rocq_rust pattern).
-    # One ctx.actions.run per file with lean as the executable.
     compiled_oleans = []
     olean_dir = None
+    src_dir = None
 
     for src in ctx.files.srcs:
         rel = src.short_path
         if rel.startswith(pkg_prefix):
             rel = rel[len(pkg_prefix):]
-        olean_rel = rel[:-5] + ".olean"  # strip ".lean" suffix
+        olean_rel = rel[:-5] + ".olean"
+
+        # Copy source into build tree so Lean sees a real file within the execroot
+        src_copy = _copy_src(ctx, src, rel)
+        if src_dir == None:
+            src_dir = src_copy.path[:-(len(rel))]
 
         olean = ctx.actions.declare_file(ctx.label.name + "_oleans/" + olean_rel)
         if olean_dir == None:
-            # Compute the base output directory from the first olean's path
             olean_dir = olean.path[:-(len(olean_rel))]
 
-        # LEAN_PATH: stdlib + deps + our output dir (for intra-library imports)
+        # LEAN_PATH: stdlib + deps + our output dir + our source dir (for intra-library imports)
         all_entries = [stdlib_path] + dep_path_entries
         if olean_dir:
             all_entries.append(olean_dir)
+        if src_dir:
+            all_entries.append(src_dir)
         lean_path_str = ":".join(all_entries)
 
         args = ctx.actions.args()
-        args.add(src)
+        args.add(src_copy)
         args.add("-o", olean)
         for flag in ctx.attr.extra_flags:
             args.add(flag)
@@ -85,7 +107,7 @@ def _lean_library_impl(ctx):
             executable = toolchain.lean,
             arguments = [args],
             inputs = depset(
-                [src] + compiled_oleans + dep_files,
+                [src_copy] + compiled_oleans + dep_files,
                 transitive = [depset(toolchain.all_files)],
             ),
             outputs = [olean],
@@ -158,28 +180,29 @@ def _lean_proof_test_impl(ctx):
     all_entries = [stdlib_path] + dep_path_entries
     lean_path_str = ":".join(all_entries)
 
+    pkg = ctx.label.package
+    pkg_prefix = pkg + "/" if pkg else ""
+
     # Typecheck each source file individually
     check_stamps = []
 
     for i, src in enumerate(ctx.files.srcs):
-        check_stamp = ctx.actions.declare_file(ctx.label.name + "_check_%d" % i)
+        rel = src.short_path
+        if rel.startswith(pkg_prefix):
+            rel = rel[len(pkg_prefix):]
 
-        # Write a small script: run lean, then touch stamp
+        # Copy source into build tree (Lean resolves symlinks)
+        src_copy = _copy_src(ctx, src, rel)
+
+        check_stamp = ctx.actions.declare_file(ctx.label.name + "_check_%d" % i)
         check_script = ctx.actions.declare_file(ctx.label.name + "_check_%d.sh" % i)
         ctx.actions.write(check_script, '#!/bin/bash\n"$1" "$2" && touch "$3"\n', is_executable = True)
 
-        args = ctx.actions.args()
-        args.add(toolchain.lean)
-        args.add(src)
-        args.add(check_stamp)
-        for flag in ctx.attr.extra_flags:
-            args.add(flag)
-
         ctx.actions.run(
             executable = check_script,
-            arguments = [args],
+            arguments = [toolchain.lean.path, src_copy.path, check_stamp.path],
             inputs = depset(
-                [src] + dep_files,
+                [src_copy] + dep_files,
                 transitive = [depset(toolchain.all_files)],
             ),
             outputs = [check_stamp],
