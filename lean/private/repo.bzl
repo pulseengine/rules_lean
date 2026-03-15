@@ -188,41 +188,26 @@ def _mathlib_repo_impl(rctx):
         if result.return_code != 0:
             fail("Failed to build Mathlib:\n" + result.stderr)
 
-    # Debug: show where oleans ended up
-    result = rctx.execute(["sh", "-c", """
-        echo "=== olean locations ==="
-        find .lake -name '*.olean' 2>/dev/null | head -5
-        echo "=== build/lib dirs ==="
-        find .lake -type d -name lib 2>/dev/null | head -10
-        echo "=== .lake/packages structure ==="
-        ls -d .lake/packages/*/ 2>/dev/null | head -10
-        for d in .lake/packages/*/; do
-            echo "--- $d ---"
-            ls -d "${d}.lake/build/lib" "${d}build/lib" "${d}lib" 2>/dev/null || echo "  (none found)"
-        done
-    """])
-    # buildifier: disable=print
-    print("MATHLIB DEBUG:\n" + result.stdout)
-
     # Consolidate all package oleans into lib/
+    # Lake v4 stores oleans at: .lake/packages/<name>/.lake/build/lib/lean/<Module>/...
     rctx.execute(["mkdir", "-p", "lib"])
     rctx.execute(["sh", "-c", """
         set -e
-        # Copy from all possible Lake olean locations
         for d in .lake/packages/*/; do
-            for lib_dir in "${d}.lake/build/lib" "${d}build/lib" "${d}lib"; do
-                if [ -d "$lib_dir" ]; then
-                    cp -r "$lib_dir"/* lib/ 2>/dev/null || true
+            for lib_dir in "${d}.lake/build/lib/lean" "${d}.lake/build/lib" "${d}build/lib/lean" "${d}build/lib"; do
+                if [ -d "$lib_dir" ] && ls "$lib_dir"/ >/dev/null 2>&1; then
+                    cp -rn "$lib_dir"/* lib/ 2>/dev/null || true
+                    break
                 fi
             done
         done
         # Also check root package build
-        if [ -d ".lake/build/lib" ]; then
-            cp -r .lake/build/lib/* lib/ 2>/dev/null || true
-        fi
-        echo "Final olean count: $(find lib -name '*.olean' 2>/dev/null | wc -l)"
-        echo "Top-level dirs in lib/:"
-        ls lib/ 2>/dev/null | head -20
+        for lib_dir in .lake/build/lib/lean .lake/build/lib; do
+            if [ -d "$lib_dir" ]; then
+                cp -rn "$lib_dir"/* lib/ 2>/dev/null || true
+                break
+            fi
+        done
     """])
 
     rctx.file("lib/.marker", "")
