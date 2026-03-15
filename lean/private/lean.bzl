@@ -100,6 +100,7 @@ def _lean_library_impl(ctx):
         mnemonic = "LeanCompile",
         progress_message = "Compiling Lean library %s" % ctx.label,
         use_default_shell_env = False,
+        execution_requirements = {"no-sandbox": "1"},
     )
 
     return [
@@ -201,6 +202,7 @@ def _lean_proof_test_impl(ctx):
         mnemonic = "LeanProofCheck",
         progress_message = "Verifying Lean proofs %s" % ctx.label,
         use_default_shell_env = False,
+        execution_requirements = {"no-sandbox": "1"},
     )
 
     runner = ctx.actions.declare_file(ctx.label.name + "_runner.sh")

@@ -38,6 +38,7 @@ def _aeneas_translate_impl(ctx):
         mnemonic = "AeneasTranslate",
         progress_message = "Translating LLBC to Lean via Aeneas %s" % ctx.label,
         use_default_shell_env = False,
+        execution_requirements = {"no-sandbox": "1"},
     )
 
     return [
