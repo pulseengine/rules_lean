@@ -130,11 +130,26 @@ require mathlib from git
 """
 
 def _mathlib_repo_impl(rctx):
-    # Resolve lean/lake binaries from the host platform toolchain repo
-    lean = rctx.path(Label("@" + rctx.attr.lean_repo + "//:bin/lean"))
-    lake = rctx.path(Label("@" + rctx.attr.lean_repo + "//:bin/lake"))
+    version = rctx.attr.lean_version
+    platform = rctx.attr.host_platform
+    artifact = _PLATFORM_ARTIFACT.get(platform, platform)
 
-    rctx.file("lean-toolchain", "leanprover/lean4:v" + rctx.attr.lean_version + "\n")
+    # Download lean toolchain directly (avoids cross-repo references in bzlmod)
+    url = "https://github.com/leanprover/lean4/releases/download/v{v}/lean-{v}-{a}.tar.zst".format(
+        v = version,
+        a = artifact,
+    )
+    rctx.download_and_extract(
+        url = url,
+        output = "_lean_toolchain",
+        stripPrefix = "lean-{v}-{a}".format(v = version, a = artifact),
+    )
+    rctx.execute(["chmod", "+x", "_lean_toolchain/bin/lean", "_lean_toolchain/bin/lake"])
+
+    lean = rctx.path("_lean_toolchain/bin/lean")
+    lake = rctx.path("_lean_toolchain/bin/lake")
+
+    rctx.file("lean-toolchain", "leanprover/lean4:v" + version + "\n")
     rctx.file("lakefile.lean", _LAKEFILE_TEMPLATE.format(rev = rctx.attr.mathlib_rev))
 
     lean_dir = str(lean.dirname)
@@ -192,8 +207,8 @@ mathlib_repo = repository_rule(
     implementation = _mathlib_repo_impl,
     doc = "Fetches Mathlib4 pre-built oleans via lake.",
     attrs = {
-        "lean_repo": attr.string(mandatory = True, doc = "Name of the lean_release repo for the host platform"),
         "lean_version": attr.string(mandatory = True),
+        "host_platform": attr.string(mandatory = True, doc = "Host platform for lean download (e.g. darwin_aarch64)"),
         "mathlib_rev": attr.string(mandatory = True, doc = "Mathlib4 git revision or tag"),
     },
 )

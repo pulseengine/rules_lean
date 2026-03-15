@@ -76,7 +76,7 @@ def _lean_impl(module_ctx):
         for tag in mod.tags.mathlib:
             mathlib_repo(
                 name = "mathlib",
-                lean_repo = "lean_" + host_platform,
+                host_platform = host_platform,
                 lean_version = version,
                 mathlib_rev = tag.rev,
             )

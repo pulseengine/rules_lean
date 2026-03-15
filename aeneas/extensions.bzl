@@ -56,17 +56,15 @@ def _aeneas_impl(module_ctx):
     # Build the Aeneas Lean support library
     host_platform = _detect_host_platform(module_ctx)
 
-    # Determine which lean repo to use (from the lean extension)
     lean_platform_map = {
         "macos_aarch64": "darwin_aarch64",
         "macos_x86_64": "darwin_x86_64",
         "linux_x86_64": "linux_x86_64",
     }
-    lean_repo = "lean_" + lean_platform_map[host_platform]
 
     aeneas_lean_lib(
         name = "aeneas_lean_lib",
-        lean_repo = lean_repo,
+        host_platform = lean_platform_map[host_platform],
         lean_version = lean_version,
         aeneas_rev = rev,
     )

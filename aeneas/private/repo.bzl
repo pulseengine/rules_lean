@@ -118,10 +118,32 @@ lean_prebuilt_library(
 """
 
 def _aeneas_lean_lib_impl(rctx):
-    # Clone the aeneas repo (sparse checkout of backends/lean only)
-    lean_repo = rctx.attr.lean_repo
-    lean = rctx.path(Label("@" + lean_repo + "//:bin/lean"))
-    lake = rctx.path(Label("@" + lean_repo + "//:bin/lake"))
+    version = rctx.attr.lean_version
+    platform = rctx.attr.host_platform
+
+    # Platform artifact mapping (same as lean toolchain)
+    artifact_map = {
+        "darwin_aarch64": "darwin_aarch64",
+        "darwin_x86_64": "darwin",
+        "linux_x86_64": "linux",
+        "linux_aarch64": "linux_aarch64",
+    }
+    artifact = artifact_map.get(platform, platform)
+
+    # Download lean toolchain directly (avoids cross-repo references in bzlmod)
+    lean_url = "https://github.com/leanprover/lean4/releases/download/v{v}/lean-{v}-{a}.tar.zst".format(
+        v = version,
+        a = artifact,
+    )
+    rctx.download_and_extract(
+        url = lean_url,
+        output = "_lean_toolchain",
+        stripPrefix = "lean-{v}-{a}".format(v = version, a = artifact),
+    )
+    rctx.execute(["chmod", "+x", "_lean_toolchain/bin/lean", "_lean_toolchain/bin/lake"])
+
+    lean = rctx.path("_lean_toolchain/bin/lean")
+    lake = rctx.path("_lean_toolchain/bin/lake")
 
     lean_dir = str(lean.dirname)
     env = {
@@ -191,8 +213,8 @@ aeneas_lean_lib = repository_rule(
     implementation = _aeneas_lean_lib_impl,
     doc = "Builds the Aeneas Lean support library from source.",
     attrs = {
-        "lean_repo": attr.string(mandatory = True),
         "lean_version": attr.string(mandatory = True),
+        "host_platform": attr.string(mandatory = True),
         "aeneas_rev": attr.string(mandatory = True, doc = "Git commit hash for aeneas source"),
         "sha256": attr.string(default = ""),
     },
