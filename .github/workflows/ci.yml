@@ -42,9 +42,7 @@ jobs:
             sudo curl -fsSL https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 -o /usr/local/bin/bazel
           fi
           sudo chmod +x /usr/local/bin/bazel
-      - name: Build hello_lean example
-        working-directory: examples/hello_lean
-        run: bazel build //:hello
-      - name: Test hello_lean example
-        working-directory: examples/hello_lean
-        run: bazel test //:hello_test
+      - name: Build hello_lean
+        run: bazel build //examples/hello_lean:hello
+      - name: Test hello_lean
+        run: bazel test //examples/hello_lean:hello_test
