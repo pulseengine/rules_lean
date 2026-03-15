@@ -1,0 +1,15 @@
+module(
+    name = "rules_lean",
+    version = "0.1.0",
+    compatibility_level = 1,
+)
+
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "platforms", version = "0.0.10")
+
+lean = use_extension("//lean:extensions.bzl", "lean")
+lean.toolchain(version = "4.27.0")
+
+use_repo(lean, "lean_toolchains")
+
+register_toolchains("@lean_toolchains//:all")

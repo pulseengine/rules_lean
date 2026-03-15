@@ -1,0 +1,11 @@
+load("@rules_lean//lean:defs.bzl", "lean_library", "lean_proof_test")
+
+lean_library(
+    name = "hello",
+    srcs = ["Hello.lean"],
+)
+
+lean_proof_test(
+    name = "hello_test",
+    srcs = ["Hello.lean"],
+)

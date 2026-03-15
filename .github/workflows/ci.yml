@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify-rules:
+    name: Verify rules load (Bazel ${{ matrix.bazel }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        bazel: ["8.x", "9.x"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazel-contrib/setup-bazel@0.14.0
+        with:
+          bazelisk-version: 1.x
+      - name: Set Bazel version
+        env:
+          BAZEL_VERSION: ${{ matrix.bazel }}
+        run: |
+          if [ "$BAZEL_VERSION" = "8.x" ]; then
+            echo "8.6.0" > .bazelversion
+          elif [ "$BAZEL_VERSION" = "9.x" ]; then
+            echo "9.0.0" > .bazelversion
+          fi
+      - name: Verify rules analysis
+        run: bazel query '//lean/...'
+
+  build:
+    name: Build example (Bazel ${{ matrix.bazel }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        bazel: ["8.x"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazel-contrib/setup-bazel@0.14.0
+        with:
+          bazelisk-version: 1.x
+      - name: Set Bazel version
+        env:
+          BAZEL_VERSION: ${{ matrix.bazel }}
+        run: |
+          if [ "$BAZEL_VERSION" = "8.x" ]; then
+            echo "8.6.0" > examples/hello_lean/.bazelversion
+          fi
+      - name: Build hello_lean example
+        working-directory: examples/hello_lean
+        run: bazel build //:hello
+      - name: Test hello_lean example
+        working-directory: examples/hello_lean
+        run: bazel test //:hello_test
