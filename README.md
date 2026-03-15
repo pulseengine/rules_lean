@@ -124,6 +124,62 @@ Hashes can be obtained from the [Lean 4 releases page](https://github.com/leanpr
 | Linux (x86_64)      | `linux_x86_64`            |
 | Linux (aarch64)     | `linux_aarch64`           |
 
+## Aeneas Integration
+
+[Aeneas](https://github.com/AeneasVerif/aeneas) translates Rust programs (via
+[Charon](https://github.com/AeneasVerif/charon) LLBC intermediate representation)
+into Lean 4 for formal verification.
+
+### Setup
+
+```starlark
+aeneas = use_extension("@rules_lean//aeneas:extensions.bzl", "aeneas")
+aeneas.toolchain(
+    version = "build-2026.03.14.003732-912707da86162a566cd8b01f137383ec411b31de",
+    rev = "912707da86162a566cd8b01f137383ec411b31de",
+    lean_version = "4.27.0",
+)
+
+use_repo(aeneas, "aeneas_toolchains", "aeneas_lean_lib")
+register_toolchains("@aeneas_toolchains//:all")
+```
+
+### Usage
+
+```starlark
+load("@rules_lean//aeneas:defs.bzl", "aeneas_translate")
+load("@rules_lean//lean:defs.bzl", "lean_library", "lean_proof_test")
+
+# Step 1: Translate LLBC (produced by Charon) to Lean
+aeneas_translate(
+    name = "my_crate_translated",
+    srcs = ["my_crate.llbc"],
+)
+
+# Step 2: Compile the generated Lean code
+lean_library(
+    name = "my_crate_compiled",
+    srcs = [":my_crate_translated"],
+    deps = ["@aeneas_lean_lib//:Aeneas"],
+)
+
+# Step 3: Write and verify proofs
+lean_proof_test(
+    name = "my_proofs_test",
+    srcs = ["MyProofs.lean"],
+    deps = [":my_crate_compiled"],
+)
+```
+
+### `aeneas_translate`
+
+Translates LLBC files to Lean 4 using Aeneas.
+
+| Attribute     | Type          | Default | Description |
+|---------------|---------------|---------|-------------|
+| `srcs`        | label_list    | required | `.llbc` files produced by Charon |
+| `extra_flags` | string_list   | `[]`     | Additional aeneas flags (e.g. `["-split-files"]`) |
+
 ## How It Works
 
 1. **Toolchain download**: `lean_release` downloads pre-built Lean 4 binaries from
@@ -135,6 +191,8 @@ Hashes can be obtained from the [Lean 4 releases page](https://github.com/leanpr
    standard library, Mathlib, and other dependencies.
 4. **Mathlib**: `mathlib_repo` uses `lake` to fetch Mathlib and download pre-built
    oleans, consolidating them into a single directory for import resolution.
+5. **Aeneas**: Downloads pre-built Aeneas binaries, builds the Lean support library,
+   and translates Rust LLBC to Lean 4 for verification.
 
 ## License
 

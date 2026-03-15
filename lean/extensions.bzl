@@ -7,8 +7,8 @@ _KNOWN_VERSIONS = {
         "sha256": {
             "darwin_aarch64": "01e7d9130464bc7d847baece07dfb2c4f48dd02e71b4b9a77d484914ea594efb",
             "darwin_x86_64": "e4ca541d86881c35497cb6e6c1a21358f03a4b2cfb2e8d4e14e58dc2a0a805ae",
-            "linux_x86_64": "5f9583a409aad697a1f131e0a89a24bd2896b39be10884987a5c5ba15a0a571e",
-            "linux_aarch64": "6d9382ac7f989a7cc8e322ae777fea2cb5371f1a102207ddd7a2b2962ce680a1",
+            "linux_x86_64": "056e2dc8564fc064a801e69f3eb18c044b9b546bc8b0e5a2c00247f8a1cb8ce6",
+            "linux_aarch64": "",  # TODO: fill from GitHub release
         },
     },
 }
