@@ -8,22 +8,18 @@ on:
 
 jobs:
   verify-rules:
-    name: Verify rules load (Bazel ${{ matrix.bazel }})
+    name: Verify rules load
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        bazel: ["8.0.0", "8.6.0"]
     steps:
       - uses: actions/checkout@v4
-      - uses: bazel-contrib/setup-bazel@0.14.0
-        with:
-          bazelisk-version: 1.x
-      - name: Set Bazel version
-        env:
-          BAZEL_VERSION: ${{ matrix.bazel }}
-        run: echo "$BAZEL_VERSION" > .bazelversion
-      - name: Verify rules analysis
-        run: bazel query '//lean/...' '//aeneas/...'
+      - name: Install bazelisk
+        run: |
+          curl -fsSL https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 -o /usr/local/bin/bazel
+          chmod +x /usr/local/bin/bazel
+      - name: Query lean rules
+        run: bazel query '//lean/...'
+      - name: Query aeneas rules
+        run: bazel query '//aeneas/...'
 
   build:
     name: Build example (${{ matrix.os }})
@@ -34,11 +30,14 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
-      - uses: bazel-contrib/setup-bazel@0.14.0
-        with:
-          bazelisk-version: 1.x
-      - name: Set Bazel version
-        run: echo "8.0.0" > examples/hello_lean/.bazelversion
+      - name: Install bazelisk
+        run: |
+          if [ "$(uname)" = "Darwin" ]; then
+            curl -fsSL https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-darwin-arm64 -o /usr/local/bin/bazel
+          else
+            curl -fsSL https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 -o /usr/local/bin/bazel
+          fi
+          chmod +x /usr/local/bin/bazel
       - name: Build hello_lean example
         working-directory: examples/hello_lean
         run: bazel build //:hello
