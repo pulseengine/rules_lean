@@ -189,15 +189,19 @@ def _mathlib_repo_impl(rctx):
             fail("Failed to build Mathlib:\n" + result.stderr)
 
     # Consolidate all package oleans into lib/
+    # Use find to locate build/lib directories robustly across Lake versions
     rctx.execute(["mkdir", "-p", "lib"])
     rctx.execute(["sh", "-c", """
-        for pkg_dir in .lake/packages/*/; do
-            for lib_dir in "${pkg_dir}.lake/build/lib" "${pkg_dir}build/lib"; do
-                if [ -d "$lib_dir" ]; then
-                    cp -r "$lib_dir"/* lib/ 2>/dev/null || true
-                fi
-            done
+        set -e
+        # Find all build/lib directories containing oleans
+        for lib_dir in $(find .lake -type d -name lib -path '*/build/lib' 2>/dev/null); do
+            if ls "$lib_dir"/*.olean "$lib_dir"/*/*.olean 2>/dev/null | head -1 >/dev/null 2>&1; then
+                cp -r "$lib_dir"/* lib/ 2>/dev/null || true
+            fi
         done
+        # Debug: show what we got
+        echo "Mathlib olean count: $(find lib -name '*.olean' 2>/dev/null | wc -l)"
+        ls lib/ 2>/dev/null | head -20
     """])
 
     rctx.file("lib/.marker", "")
