@@ -31,13 +31,15 @@ def _aeneas_translate_impl(ctx):
         cmd += ' "{src}"'.format(src = llbc.path)
         lines.append(cmd)
 
-    ctx.actions.run_shell(
-        inputs = ctx.files.srcs + toolchain.all_files,
+    script = ctx.actions.declare_file(ctx.label.name + "_translate.sh")
+    ctx.actions.write(script, "\n".join(lines), is_executable = True)
+
+    ctx.actions.run(
+        executable = script,
+        inputs = depset(ctx.files.srcs + toolchain.all_files),
         outputs = [out_dir],
-        command = "\n".join(lines),
         mnemonic = "AeneasTranslate",
         progress_message = "Translating LLBC to Lean via Aeneas %s" % ctx.label,
-        use_default_shell_env = False,
         execution_requirements = {"no-sandbox": "1"},
     )
 

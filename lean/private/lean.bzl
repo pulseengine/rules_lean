@@ -66,9 +66,6 @@ def _lean_library_impl(ctx):
         "#!/bin/bash",
         "set -euo pipefail",
         "",
-        'LEAN="{lean}"'.format(lean = toolchain.lean.path),
-        'export LEAN_PATH="{lp}"'.format(lp = lean_path_str),
-        "",
     ]
 
     for src in ctx.files.srcs:
@@ -80,26 +77,33 @@ def _lean_library_impl(ctx):
 
         lines.append("mkdir -p $(dirname {op})".format(op = olean_path))
         if extra:
-            lines.append('"$LEAN" {extra} "{src}" -o "{op}"'.format(
+            lines.append('"{lean}" {extra} "{src}" -o "{op}"'.format(
+                lean = toolchain.lean.path,
                 extra = extra,
                 src = src.path,
                 op = olean_path,
             ))
         else:
-            lines.append('"$LEAN" "{src}" -o "{op}"'.format(
+            lines.append('"{lean}" "{src}" -o "{op}"'.format(
+                lean = toolchain.lean.path,
                 src = src.path,
                 op = olean_path,
             ))
 
     lines.extend(["", 'touch "{s}"'.format(s = stamp.path)])
 
-    ctx.actions.run_shell(
-        inputs = ctx.files.srcs + dep_files + toolchain.all_files,
+    # Write script to file and execute via ctx.actions.run (not run_shell)
+    # to avoid Bazel 8's strict input path validation in run_shell.
+    script = ctx.actions.declare_file(ctx.label.name + "_compile.sh")
+    ctx.actions.write(script, "\n".join(lines), is_executable = True)
+
+    ctx.actions.run(
+        executable = script,
+        inputs = depset(ctx.files.srcs + dep_files + toolchain.all_files),
         outputs = [out_dir, stamp],
-        command = "\n".join(lines),
+        env = {"LEAN_PATH": lean_path_str},
         mnemonic = "LeanCompile",
         progress_message = "Compiling Lean library %s" % ctx.label,
-        use_default_shell_env = False,
         execution_requirements = {"no-sandbox": "1"},
     )
 
@@ -158,16 +162,13 @@ def _lean_proof_test_impl(ctx):
         "#!/bin/bash",
         "set -euo pipefail",
         "",
-        'LEAN="{lean}"'.format(lean = toolchain.lean.path),
-        'export LEAN_PATH="{lp}"'.format(lp = lean_path_str),
-        "",
         "PASS=0",
         "FAIL=0",
         "",
     ]
 
     for src in ctx.files.srcs:
-        cmd = '"$LEAN"'
+        cmd = '"{lean}"'.format(lean = toolchain.lean.path)
         if extra:
             cmd += " " + extra
         cmd += ' "{src}"'.format(src = src.path)
@@ -195,13 +196,16 @@ def _lean_proof_test_impl(ctx):
         'touch "{s}"'.format(s = stamp.path),
     ])
 
-    ctx.actions.run_shell(
-        inputs = ctx.files.srcs + dep_files + toolchain.all_files,
+    script = ctx.actions.declare_file(ctx.label.name + "_check.sh")
+    ctx.actions.write(script, "\n".join(lines), is_executable = True)
+
+    ctx.actions.run(
+        executable = script,
+        inputs = depset(ctx.files.srcs + dep_files + toolchain.all_files),
         outputs = [stamp],
-        command = "\n".join(lines),
+        env = {"LEAN_PATH": lean_path_str},
         mnemonic = "LeanProofCheck",
         progress_message = "Verifying Lean proofs %s" % ctx.label,
-        use_default_shell_env = False,
         execution_requirements = {"no-sandbox": "1"},
     )
 
