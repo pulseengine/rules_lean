@@ -10,14 +10,14 @@ jobs:
   verify-rules:
     name: Verify rules load
     runs-on: ubuntu-latest
-    env:
-      USE_BAZEL_VERSION: "8.0.0"
     steps:
       - uses: actions/checkout@v4
-      - name: Install bazelisk
-        run: |
-          sudo curl -fsSL https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 -o /usr/local/bin/bazel
-          sudo chmod +x /usr/local/bin/bazel
+      - uses: bazelbuild/setup-bazelisk@v3
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/bazel
+          key: bazel-verify-${{ runner.os }}-${{ hashFiles('MODULE.bazel') }}
+          restore-keys: bazel-verify-${{ runner.os }}-
       - name: Query lean rules
         run: bazel query '//lean/...'
       - name: Query aeneas rules
@@ -30,18 +30,16 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-    env:
-      USE_BAZEL_VERSION: "8.0.0"
     steps:
       - uses: actions/checkout@v4
-      - name: Install bazelisk
-        run: |
-          if [ "$(uname)" = "Darwin" ]; then
-            sudo curl -fsSL https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-darwin-arm64 -o /usr/local/bin/bazel
-          else
-            sudo curl -fsSL https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 -o /usr/local/bin/bazel
-          fi
-          sudo chmod +x /usr/local/bin/bazel
+      - uses: bazelbuild/setup-bazelisk@v3
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/bazel
+          key: bazel-build-${{ runner.os }}-${{ hashFiles('MODULE.bazel') }}
+          restore-keys: bazel-build-${{ runner.os }}-
+      - name: Clean build cache
+        run: bazel clean --expunge_async || true
       - name: Verify Bazel version
         run: bazel version
       - name: Build hello_lean
