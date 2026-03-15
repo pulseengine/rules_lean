@@ -24,7 +24,7 @@ jobs:
         run: bazel query '//aeneas/...'
 
   build:
-    name: Build example (${{ matrix.os }})
+    name: Build hello (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -40,9 +40,25 @@ jobs:
           restore-keys: bazel-build-${{ runner.os }}-
       - name: Clean build cache
         run: bazel clean --expunge_async || true
-      - name: Verify Bazel version
-        run: bazel version
       - name: Build hello_lean
         run: bazel build //examples/hello_lean:hello
       - name: Test hello_lean
         run: bazel test //examples/hello_lean:hello_test
+
+  build-mathlib:
+    name: Build mathlib proofs (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazelbuild/setup-bazelisk@v3
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/bazel
+          key: bazel-mathlib-${{ runner.os }}-${{ hashFiles('MODULE.bazel') }}
+          restore-keys: bazel-mathlib-${{ runner.os }}-
+      - name: Build mathlib proofs
+        run: bazel build //examples/mathlib_proof:nat_proofs
+        timeout-minutes: 30
+      - name: Test mathlib proofs
+        run: bazel test //examples/mathlib_proof:nat_proofs_test
+        timeout-minutes: 10
