@@ -15,4 +15,5 @@ lean_proof_test(
         "Defs.lean",
         "Props.lean",
     ],
+    deps = [":multi"],  # Provides compiled oleans for import resolution
 )
