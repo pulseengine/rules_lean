@@ -1,0 +1,10 @@
+project:
+  name: rules_lean
+  version: "0.1.0"
+  schemas:
+    - common
+    - stpa
+
+sources:
+  - path: artifacts
+    format: generic-yaml

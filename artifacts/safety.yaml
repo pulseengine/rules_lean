@@ -1,0 +1,727 @@
+artifacts:
+  # ══════════════════════════════════════════════════════════════════════
+  # STEP 1a — Losses
+  # ══════════════════════════════════════════════════════════════════════
+
+  - id: L-001
+    type: loss
+    title: Undetected proof unsoundness
+    status: draft
+    description: >
+      A Lean proof that type-checks in the build system is actually unsound
+      due to toolchain misconfiguration, version mismatch, or incomplete
+      dependency resolution — giving false confidence in verified properties.
+    fields:
+      stakeholders: [developers, safety-engineers, certification-authorities]
+
+  - id: L-002
+    type: loss
+    title: Silent build corruption
+    status: draft
+    description: >
+      Build artifacts (.olean files) are corrupted, stale, or produced by
+      the wrong toolchain version, leading to downstream proof failures or
+      false verification results that go undetected.
+    fields:
+      stakeholders: [developers, ci-operators]
+
+  - id: L-003
+    type: loss
+    title: Supply-chain compromise of toolchain
+    status: draft
+    description: >
+      A tampered Lean binary or Mathlib olean set is downloaded and used,
+      potentially introducing a malicious prover that accepts invalid proofs.
+    fields:
+      stakeholders: [developers, security-engineers, certification-authorities]
+
+  - id: L-004
+    type: loss
+    title: Loss of reproducibility
+    status: draft
+    description: >
+      Builds produce different results on different platforms or at different
+      times due to non-hermetic inputs, making verification results unreliable
+      for certification evidence.
+    fields:
+      stakeholders: [developers, certification-authorities]
+
+  # ══════════════════════════════════════════════════════════════════════
+  # STEP 1b — Hazards
+  # ══════════════════════════════════════════════════════════════════════
+
+  - id: H-001
+    type: hazard
+    title: Lean compiler version mismatch with Mathlib oleans
+    status: draft
+    description: >
+      The Lean compiler version used for compilation differs from the version
+      used to build Mathlib oleans, causing olean format incompatibility.
+      Lean may silently accept incompatible oleans or produce incorrect results.
+    fields:
+      severity: critical
+    links:
+      - type: leads-to-loss
+        target: L-001
+      - type: leads-to-loss
+        target: L-002
+
+  - id: H-002
+    type: hazard
+    title: SHA-256 hash verification bypassed or missing
+    status: draft
+    description: >
+      Toolchain archive is downloaded without SHA-256 verification, allowing
+      a tampered binary to be used. Empty sha256 strings disable verification
+      in Bazel's download_and_extract.
+    fields:
+      severity: critical
+    links:
+      - type: leads-to-loss
+        target: L-003
+
+  - id: H-003
+    type: hazard
+    title: LEAN_PATH includes stale or incorrect directories
+    status: draft
+    description: >
+      The LEAN_PATH environment variable points to directories containing
+      oleans from a previous build, a different Lean version, or a wrong
+      dependency, causing the compiler to resolve imports incorrectly.
+    fields:
+      severity: critical
+    links:
+      - type: leads-to-loss
+        target: L-001
+      - type: leads-to-loss
+        target: L-002
+
+  - id: H-004
+    type: hazard
+    title: Source file symlink resolution exposes wrong file content
+    status: draft
+    description: >
+      Bazel's execroot uses symlinks for source files. If symlink targets
+      change between analysis and execution (TOCTOU), the compiler may
+      process a different file than what was analyzed.
+    fields:
+      severity: marginal
+    links:
+      - type: leads-to-loss
+        target: L-001
+
+  - id: H-005
+    type: hazard
+    title: Platform-specific binary used on wrong platform
+    status: draft
+    description: >
+      Bazel's toolchain resolution selects a Lean binary for the wrong
+      platform (e.g., darwin_aarch64 binary on linux_x86_64), leading to
+      execution failures or undefined behavior.
+    fields:
+      severity: critical
+    links:
+      - type: leads-to-loss
+        target: L-002
+
+  - id: H-006
+    type: hazard
+    title: Non-hermetic Mathlib fetch produces inconsistent oleans
+    status: draft
+    description: >
+      The mathlib_repo rule uses network access (lake exe cache get) during
+      fetch. If the cache server returns different oleans across builds
+      (partial updates, CDN staleness), builds become non-reproducible.
+    fields:
+      severity: marginal
+    links:
+      - type: leads-to-loss
+        target: L-004
+
+  - id: H-007
+    type: hazard
+    title: Sandbox disabled allows untracked host dependencies
+    status: draft
+    description: >
+      The no-sandbox execution requirement means Lean actions can access
+      host filesystem resources not declared as inputs. Changes to host
+      state (e.g., system libraries) may affect build results without
+      triggering rebuild.
+    fields:
+      severity: marginal
+    links:
+      - type: leads-to-loss
+        target: L-004
+
+  # ══════════════════════════════════════════════════════════════════════
+  # STEP 1c — System-level constraints
+  # ══════════════════════════════════════════════════════════════════════
+
+  - id: SC-001
+    type: system-constraint
+    title: Lean and Mathlib versions must be compatible
+    status: draft
+    description: >
+      The Lean compiler version must exactly match the lean-toolchain version
+      used to build the Mathlib oleans. The extension must enforce this by
+      using the same version string for both.
+    links:
+      - type: prevents
+        target: H-001
+
+  - id: SC-002
+    type: system-constraint
+    title: All toolchain downloads must have verified SHA-256 hashes
+    status: draft
+    description: >
+      Every toolchain archive download must include a non-empty SHA-256 hash.
+      The KNOWN_VERSIONS registry must be populated for all supported platforms
+      before a version is considered release-ready.
+    links:
+      - type: prevents
+        target: H-002
+
+  - id: SC-003
+    type: system-constraint
+    title: LEAN_PATH must contain only current-build paths
+    status: draft
+    description: >
+      LEAN_PATH must be constructed exclusively from the current action's
+      declared inputs (stdlib, deps, output directory). It must never include
+      absolute paths, cached paths, or paths from previous builds.
+    links:
+      - type: prevents
+        target: H-003
+
+  - id: SC-004
+    type: system-constraint
+    title: Source files must be copied (not symlinked) before compilation
+    status: draft
+    description: >
+      Source .lean files must be copied into the build output tree
+      (dereferencing symlinks) before being passed to the Lean compiler.
+      This ensures the compiler sees a stable snapshot and satisfies Lean's
+      moduleNameOfFileName path validation.
+    links:
+      - type: prevents
+        target: H-004
+
+  - id: SC-005
+    type: system-constraint
+    title: Platform constraints must match toolchain binary architecture
+    status: draft
+    description: >
+      Each toolchain repo's exec_compatible_with constraints must exactly
+      match the platform of the downloaded binary. The hub repo must register
+      all platform variants.
+    links:
+      - type: prevents
+        target: H-005
+
+  - id: SC-006
+    type: system-constraint
+    title: Mathlib fetch must use pinned revision
+    status: draft
+    description: >
+      The mathlib_repo rule must fetch from a pinned git revision (tag or
+      commit hash), never from a floating branch. The lakefile must use
+      the @ operator with an exact rev.
+    links:
+      - type: prevents
+        target: H-006
+
+  - id: SC-007
+    type: system-constraint
+    title: Actions must declare all inputs explicitly
+    status: draft
+    description: >
+      Despite no-sandbox, all action inputs must be declared via the inputs
+      parameter. Bazel tracks these for caching/rebuild decisions. Undeclared
+      inputs cause stale cache hits.
+    links:
+      - type: prevents
+        target: H-007
+
+  # ══════════════════════════════════════════════════════════════════════
+  # STEP 2 — Control structure
+  # ══════════════════════════════════════════════════════════════════════
+
+  - id: CTRL-001
+    type: controller
+    title: Bazel build system
+    status: draft
+    description: >
+      The Bazel build system orchestrates toolchain resolution, action
+      scheduling, input/output tracking, and caching. It controls which
+      toolchain is used for each action and manages the build graph.
+    fields:
+      controller-type: automated
+      process-model:
+        - Registered toolchains and their platform constraints
+        - Action input/output declarations and dependency graph
+        - Cached action results keyed by input hashes
+
+  - id: CTRL-002
+    type: controller
+    title: Module extension (lean/extensions.bzl)
+    status: draft
+    description: >
+      The Lean module extension configures toolchain downloads, Mathlib
+      fetching, and toolchain registration. It mediates between the user's
+      MODULE.bazel declarations and the repository rules.
+    fields:
+      controller-type: automated
+      process-model:
+        - User-declared Lean version and SHA-256 overrides
+        - Host platform detection (os.name, os.arch)
+        - Known versions registry with per-platform hashes
+
+  - id: CTRL-003
+    type: controller
+    title: lean_library rule implementation
+    status: draft
+    description: >
+      The lean_library rule creates compilation actions for each .lean
+      source file. It computes LEAN_PATH, manages source file copying,
+      and chains per-file actions with dependency ordering.
+    fields:
+      controller-type: automated
+      process-model:
+        - Source file list and compilation order (from srcs attribute)
+        - Dependency LEAN_PATH entries from LeanInfo providers
+        - Toolchain binary path and stdlib location
+
+  - id: CTRL-004
+    type: controller
+    title: Developer
+    status: draft
+    description: >
+      The developer writes MODULE.bazel configuration (version, SHA-256
+      hashes), BUILD.bazel rules, and .lean source files. They decide
+      which Lean/Mathlib versions to use and what proofs to write.
+    fields:
+      controller-type: human
+
+  - id: CP-001
+    type: controlled-process
+    title: Lean compilation process
+    status: draft
+    description: >
+      The process of invoking the Lean compiler binary on source files
+      to produce .olean outputs or typecheck proofs. Includes module
+      name resolution via LEAN_PATH.
+
+  - id: CP-002
+    type: controlled-process
+    title: Toolchain download and setup
+    status: draft
+    description: >
+      The process of downloading Lean binaries from GitHub releases,
+      extracting archives, setting permissions, and registering toolchains.
+
+  - id: CP-003
+    type: controlled-process
+    title: Mathlib fetch and olean consolidation
+    status: draft
+    description: >
+      The process of downloading Mathlib sources via lake, fetching
+      pre-built oleans from the Mathlib cloud cache, and consolidating
+      them into a single lib/ directory for LEAN_PATH.
+
+  # ══════════════════════════════════════════════════════════════════════
+  # STEP 2 — Control actions
+  # ══════════════════════════════════════════════════════════════════════
+
+  - id: CA-001
+    type: control-action
+    title: Select toolchain for platform
+    status: draft
+    description: >
+      Bazel selects the appropriate Lean toolchain based on the execution
+      platform's OS and CPU constraints.
+    fields:
+      action: Select lean_{platform} toolchain matching exec_compatible_with
+    links:
+      - type: issued-by
+        target: CTRL-001
+      - type: acts-on
+        target: CP-001
+
+  - id: CA-002
+    type: control-action
+    title: Download and extract Lean archive
+    status: draft
+    description: >
+      The lean_release repository rule downloads the Lean 4 binary archive
+      from GitHub releases and extracts it.
+    fields:
+      action: download_and_extract with SHA-256 verification and stripPrefix
+    links:
+      - type: issued-by
+        target: CTRL-002
+      - type: acts-on
+        target: CP-002
+
+  - id: CA-003
+    type: control-action
+    title: Set LEAN_PATH for compilation
+    status: draft
+    description: >
+      The lean_library rule constructs the LEAN_PATH environment variable
+      from stdlib, dependency oleans, and the output directory.
+    fields:
+      action: Construct LEAN_PATH from stdlib + dep LeanInfo entries + output dir
+    links:
+      - type: issued-by
+        target: CTRL-003
+      - type: acts-on
+        target: CP-001
+
+  - id: CA-004
+    type: control-action
+    title: Invoke lean compiler on source file
+    status: draft
+    description: >
+      The lean_library rule invokes the lean binary on a copied source
+      file with -o flag to produce an olean output.
+    fields:
+      action: ctx.actions.run(executable=lean, args=[src, -o, olean])
+    links:
+      - type: issued-by
+        target: CTRL-003
+      - type: acts-on
+        target: CP-001
+
+  - id: CA-005
+    type: control-action
+    title: Fetch Mathlib oleans via lake
+    status: draft
+    description: >
+      The mathlib_repo rule invokes lake to download Mathlib source and
+      pre-built oleans, then consolidates them into lib/.
+    fields:
+      action: lake update + lake exe cache get + cp consolidation
+    links:
+      - type: issued-by
+        target: CTRL-002
+      - type: acts-on
+        target: CP-003
+
+  # ══════════════════════════════════════════════════════════════════════
+  # STEP 3 — Unsafe Control Actions
+  # ══════════════════════════════════════════════════════════════════════
+
+  - id: UCA-001
+    type: uca
+    title: Extension provides mismatched Lean version to Mathlib fetch
+    status: draft
+    description: >
+      The module extension passes a different lean_version to mathlib_repo
+      than the version used for lean_release, causing Mathlib to be fetched
+      with one Lean version but compiled with another.
+    fields:
+      uca-type: providing
+      context: >
+        User declares lean.toolchain(version="X") and lean.mathlib(rev="vY")
+        where X != Y, or the extension passes different version strings to
+        the lean_release and mathlib_repo rules.
+      rationale: >
+        Olean format is version-specific. Using oleans built with a different
+        Lean version causes import failures or, worse, silent miscompilation.
+    links:
+      - type: issued-by
+        target: CTRL-002
+      - type: leads-to-hazard
+        target: H-001
+
+  - id: UCA-002
+    type: uca
+    title: Extension provides empty SHA-256 for production builds
+    status: draft
+    description: >
+      The extension allows empty SHA-256 strings (from KNOWN_VERSIONS or
+      user overrides), causing Bazel to download without hash verification.
+    fields:
+      uca-type: not-providing
+      context: >
+        A new Lean version is added to KNOWN_VERSIONS with empty hash strings,
+        or user provides no sha256 overrides for an unknown version.
+      rationale: >
+        Without SHA-256 verification, a MITM or compromised CDN could serve
+        a tampered Lean binary that accepts invalid proofs.
+    links:
+      - type: issued-by
+        target: CTRL-002
+      - type: leads-to-hazard
+        target: H-002
+
+  - id: UCA-003
+    type: uca
+    title: lean_library includes stale LEAN_PATH from previous dep version
+    status: draft
+    description: >
+      A dependency's olean path from a previous build is included in
+      LEAN_PATH because Bazel's cache returns a stale LeanInfo provider.
+    fields:
+      uca-type: providing
+      context: >
+        Developer updates a dependency's Lean version but Bazel cache
+        serves the old LeanInfo with the previous olean directory path.
+      rationale: >
+        Stale LEAN_PATH entries cause the Lean compiler to resolve imports
+        from wrong version oleans, producing incorrect proof results.
+    links:
+      - type: issued-by
+        target: CTRL-003
+      - type: leads-to-hazard
+        target: H-003
+
+  - id: UCA-004
+    type: uca
+    title: Source copy action omitted, lean receives symlink
+    status: draft
+    description: >
+      The _copy_src helper fails or is bypassed, passing the original
+      symlinked source file to lean instead of a dereferenced copy.
+    fields:
+      uca-type: not-providing
+      context: >
+        Rule implementation change removes or breaks the cp -L step,
+        or a new code path bypasses _copy_src.
+      rationale: >
+        Lean's moduleNameOfFileName validates canonical paths. Symlinks
+        resolve outside the execroot, causing compilation failure.
+    links:
+      - type: issued-by
+        target: CTRL-003
+      - type: leads-to-hazard
+        target: H-004
+
+  - id: UCA-005
+    type: uca
+    title: Toolchain hub registers wrong platform constraints
+    status: draft
+    description: >
+      The _PLATFORM_CONSTRAINTS map or _PLATFORM_ARTIFACT map contains
+      incorrect mappings, causing Bazel to select a binary for the wrong
+      platform.
+    fields:
+      uca-type: providing
+      context: >
+        Lean release naming changes (e.g., new platform added with
+        different convention) but PLATFORM maps are not updated.
+      rationale: >
+        Wrong-platform binary may crash, produce wrong-endian oleans,
+        or silently produce incorrect results.
+    links:
+      - type: issued-by
+        target: CTRL-002
+      - type: leads-to-hazard
+        target: H-005
+
+  - id: UCA-006
+    type: uca
+    title: Mathlib olean consolidation misses packages
+    status: draft
+    description: >
+      The shell script that copies oleans from .lake/packages/*/build/lib/lean/
+      fails to find oleans due to Lake directory structure changes, leaving
+      the lib/ directory incomplete.
+    fields:
+      uca-type: not-providing
+      context: >
+        Lake changes its build output layout in a new version. The find
+        patterns in the consolidation script no longer match.
+      rationale: >
+        Missing Mathlib dependencies cause import resolution failures.
+        If some oleans are present but transitive deps are missing, lean
+        may give confusing error messages.
+    links:
+      - type: issued-by
+        target: CTRL-002
+      - type: leads-to-hazard
+        target: H-003
+
+  # ══════════════════════════════════════════════════════════════════════
+  # STEP 3b — Controller constraints
+  # ══════════════════════════════════════════════════════════════════════
+
+  - id: CC-001
+    type: controller-constraint
+    title: Extension must use single version for Lean and Mathlib
+    status: draft
+    fields:
+      constraint: >
+        The lean_version parameter passed to mathlib_repo must be identical
+        to the version used in lean_release. Both must come from the same
+        user-declared lean.toolchain(version=...) tag.
+    links:
+      - type: constrains-controller
+        target: CTRL-002
+      - type: inverts-uca
+        target: UCA-001
+      - type: prevents
+        target: H-001
+
+  - id: CC-002
+    type: controller-constraint
+    title: Extension must reject empty SHA-256 for known versions
+    status: draft
+    fields:
+      constraint: >
+        If a version is in KNOWN_VERSIONS, all platform hashes must be
+        non-empty strings. The extension should fail() if any hash is empty
+        for a known version in a non-development context.
+    links:
+      - type: constrains-controller
+        target: CTRL-002
+      - type: inverts-uca
+        target: UCA-002
+      - type: prevents
+        target: H-002
+
+  - id: CC-003
+    type: controller-constraint
+    title: LEAN_PATH must be computed from declared action inputs only
+    status: draft
+    fields:
+      constraint: >
+        Every directory in LEAN_PATH must correspond to a file or directory
+        that is declared as an input to the current action. No absolute paths,
+        environment-derived paths, or cached paths may be used.
+    links:
+      - type: constrains-controller
+        target: CTRL-003
+      - type: inverts-uca
+        target: UCA-003
+      - type: prevents
+        target: H-003
+
+  - id: CC-004
+    type: controller-constraint
+    title: lean_library must always copy sources before compilation
+    status: draft
+    fields:
+      constraint: >
+        Every source file passed to lean must go through _copy_src (cp -L)
+        to produce a dereferenced copy in bazel-out/. The lean action must
+        never receive a source file directly.
+    links:
+      - type: constrains-controller
+        target: CTRL-003
+      - type: inverts-uca
+        target: UCA-004
+      - type: prevents
+        target: H-004
+
+  # ══════════════════════════════════════════════════════════════════════
+  # STEP 4 — Loss scenarios
+  # ══════════════════════════════════════════════════════════════════════
+
+  - id: LS-001
+    type: loss-scenario
+    title: Lean version upgrade without Mathlib version bump
+    status: draft
+    description: >
+      Developer changes lean.toolchain(version="4.28.0") but forgets to
+      update lean.mathlib(rev="v4.28.0"). The extension passes lean_version
+      "4.28.0" to mathlib_repo which downloads 4.28.0 lean toolchain, but
+      the lakefile still fetches mathlib at the old tag which was built
+      with 4.27.0. Lean rejects the stale oleans with cryptic errors.
+    fields:
+      scenario-type: inadequate-process-model
+      causal-factors:
+        - No automated check that Lean version matches Mathlib tag
+        - User must manually coordinate two version strings
+    links:
+      - type: caused-by-uca
+        target: UCA-001
+      - type: leads-to-hazard
+        target: H-001
+
+  - id: LS-002
+    type: loss-scenario
+    title: New platform added with wrong artifact name mapping
+    status: draft
+    description: >
+      A new Lean release adds a platform (e.g., linux_riscv64). A developer
+      adds it to ALL_PLATFORMS but with the wrong _PLATFORM_ARTIFACT mapping.
+      Bazel downloads the wrong archive, extraction succeeds (zstd produces
+      garbage), and lean binary crashes at invocation time.
+    fields:
+      scenario-type: inadequate-control-algorithm
+      causal-factors:
+        - Platform naming convention differs between releases
+        - No integration test for each platform download
+    links:
+      - type: caused-by-uca
+        target: UCA-005
+      - type: leads-to-hazard
+        target: H-005
+
+  - id: LS-003
+    type: loss-scenario
+    title: Lake changes olean output directory structure
+    status: draft
+    description: >
+      A Lake version update changes the build output path from
+      .lake/packages/<name>/.lake/build/lib/lean/ to a new layout
+      (e.g., .lake/build/<name>/lib/). The consolidation script's
+      find pattern no longer matches, lib/ stays empty, and lean
+      fails with "unknown module prefix" errors.
+    fields:
+      scenario-type: inadequate-feedback
+      causal-factors:
+        - Shell script pattern-matches on internal Lake directory layout
+        - No validation that consolidated lib/ contains expected modules
+    links:
+      - type: caused-by-uca
+        target: UCA-006
+      - type: leads-to-hazard
+        target: H-003
+
+  - id: LS-004
+    type: loss-scenario
+    title: GitHub CDN serves tampered Lean binary without hash check
+    status: draft
+    description: >
+      An attacker compromises a GitHub CDN edge or performs a MITM attack.
+      The downloaded lean archive has a different SHA-256 but the hash
+      field is empty (verification disabled). The tampered lean binary
+      accepts all proofs as valid, giving false confidence.
+    fields:
+      scenario-type: control-path
+      causal-factors:
+        - Empty SHA-256 strings disable Bazel hash verification
+        - No secondary verification (e.g., GPG signature check)
+    links:
+      - type: leads-to-hazard
+        target: H-002
+
+  - id: CC-005
+    type: controller-constraint
+    title: Platform maps must be validated against release artifacts
+    status: draft
+    fields:
+      constraint: Every entry in _PLATFORM_ARTIFACT must be verified against actual Lean release archive names. CI must test that download_and_extract succeeds for each platform.
+    links:
+      - type: constrains-controller
+        target: CTRL-002
+      - type: inverts-uca
+        target: UCA-005
+      - type: prevents
+        target: H-005
+
+  - id: CC-006
+    type: controller-constraint
+    title: Mathlib consolidation must verify expected modules exist
+    status: draft
+    fields:
+      constraint: After olean consolidation, the repo rule must check that lib/Mathlib/ exists and contains oleans. Fail the fetch if the directory is empty or missing.
+    links:
+      - type: constrains-controller
+        target: CTRL-002
+      - type: inverts-uca
+        target: UCA-006
+      - type: prevents
+        target: H-003
