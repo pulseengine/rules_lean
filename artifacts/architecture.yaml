@@ -1,0 +1,153 @@
+artifacts:
+  # ══════════════════════════════════════════════════════════════════════
+  # Design decisions implementing requirements
+  # ══════════════════════════════════════════════════════════════════════
+
+  - id: DD-001
+    type: design-decision
+    title: Per-platform toolchain download with SHA-256 registry
+    status: accepted
+    description: >
+      Download pre-built Lean 4 binaries from GitHub releases for each
+      supported platform. Maintain a KNOWN_VERSIONS registry in
+      extensions.bzl with per-platform SHA-256 hashes. The extension
+      fail()s when a hash is missing unless require_hashes = False.
+    fields:
+      rationale: >
+        Pre-built binaries from GitHub releases are hermetic and
+        version-pinned. SHA-256 verification prevents supply-chain attacks.
+        The registry pattern (vs user-provided hashes) provides secure
+        defaults while sha256 dict overrides allow advanced use cases.
+      alternatives: >
+        Alternative 1: Use nixpkgs for Lean (like rules_rocq_rust uses
+        for Rocq). Rejected because Lean releases provide clean pre-built
+        binaries and nix adds complexity.
+        Alternative 2: Build Lean from source. Rejected because it would
+        add build time and require OCaml/C toolchains.
+    links:
+      - type: satisfies
+        target: REQ-001
+      - type: satisfies
+        target: REQ-009
+
+  - id: DD-002
+    type: design-decision
+    title: Single version string for Lean and Mathlib
+    status: accepted
+    description: >
+      The module extension uses the same version string from
+      lean.toolchain(version=...) as the lean_version parameter passed to
+      mathlib_repo. Mathlib is fetched by git tag matching the Lean version.
+    fields:
+      rationale: >
+        Lean olean format is version-specific. Any version mismatch causes
+        cryptic failures or silent miscompilation. Using a single version
+        source eliminates this class of bugs at configuration time.
+      alternatives: >
+        Alternative: Allow independent Lean and Mathlib version selection.
+        Rejected because the coupling is inherent to the olean format, and
+        independent selection creates a foot-gun.
+    links:
+      - type: satisfies
+        target: REQ-002
+
+  - id: DD-003
+    type: design-decision
+    title: Per-file ctx.actions.run with lean as executable
+    status: accepted
+    description: >
+      Compile each .lean source file in a separate ctx.actions.run() call
+      with the lean binary as the executable. Each action declares its
+      inputs explicitly (source copy, dependency oleans, toolchain files).
+      LEAN_PATH is computed from these declared inputs only.
+    fields:
+      rationale: >
+        Per-file actions match the rules_rocq_rust pattern and enable
+        Bazel's fine-grained caching. Using ctx.actions.run (not run_shell)
+        integrates with Bazel's input handling. LEAN_PATH from declared
+        inputs ensures hermeticity.
+      alternatives: >
+        Alternative: Single run_shell action compiling all files. Rejected
+        because it prevents incremental caching and had input path
+        validation issues with Bazel 8.
+    links:
+      - type: satisfies
+        target: REQ-003
+      - type: satisfies
+        target: REQ-007
+
+  - id: DD-004
+    type: design-decision
+    title: Source file copy via cp -L before lean invocation
+    status: accepted
+    description: >
+      Each source .lean file is copied into bazel-out/ via cp -L
+      (dereference symlinks) before being passed to the lean compiler.
+      This produces a real file within the execroot, satisfying Lean 4's
+      moduleNameOfFileName path validation.
+    fields:
+      rationale: >
+        Lean 4's moduleNameOfFileName (Path.lean) resolves symlinks and
+        validates the canonical path is within its root directory (cwd).
+        In Bazel, source files in the execroot are symlinks pointing to
+        the workspace. Copying produces a real file with a canonical path
+        inside the execroot.
+      alternatives: >
+        Alternative: Pass --root flag to lean to broaden path validation.
+        Rejected because lean's CLI doesn't expose a root override flag,
+        and module name computation depends on the root-to-file relationship.
+    links:
+      - type: satisfies
+        target: REQ-004
+
+  - id: DD-005
+    type: design-decision
+    title: Platform constraint mapping with artifact name translation
+    status: accepted
+    description: >
+      Maintain two maps: _PLATFORM_CONSTRAINTS (Bazel constraint labels)
+      and _PLATFORM_ARTIFACT (Lean release archive names). The hub repo
+      registers toolchains with matching constraints. The artifact map
+      translates internal platform names to Lean's naming convention
+      (e.g., darwin_x86_64 → "darwin").
+    fields:
+      rationale: >
+        Lean releases use short names for x86_64 platforms (just "darwin"
+        and "linux") but full names for aarch64. The translation map
+        decouples our internal naming from Lean's release naming, making
+        it easy to add platforms.
+      alternatives: >
+        Alternative: Use Lean's naming directly as internal platform IDs.
+        Rejected because "darwin" and "linux" are ambiguous (no arch),
+        and Bazel's platform constraint system uses explicit OS+CPU pairs.
+    links:
+      - type: satisfies
+        target: REQ-005
+
+  - id: DD-006
+    type: design-decision
+    title: Mathlib fetch via lake with olean consolidation
+    status: accepted
+    description: >
+      Download Lean toolchain within the mathlib_repo rule, create a
+      lakefile pinned to the specified revision, run lake exe cache get
+      to fetch pre-built oleans, then consolidate all package oleans into
+      a single lib/ directory. The lib/ directory is exposed as a
+      lean_prebuilt_library via a path_marker.
+    fields:
+      rationale: >
+        Lake's cloud cache provides fast pre-built olean downloads (~7800
+        files in ~25s). Consolidation into lib/ creates a single LEAN_PATH
+        entry. Downloading lean within the repo rule avoids cross-repo
+        references that fail in bzlmod. Pinned revision ensures
+        reproducibility.
+      alternatives: >
+        Alternative 1: Build Mathlib from source. Rejected because it
+        takes hours and requires significant compute resources.
+        Alternative 2: Use nixpkgs for pre-built Mathlib. Rejected because
+        Mathlib is not reliably packaged in nixpkgs.
+    links:
+      - type: satisfies
+        target: REQ-006
+      - type: satisfies
+        target: REQ-008

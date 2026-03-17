@@ -1,0 +1,141 @@
+artifacts:
+  # ══════════════════════════════════════════════════════════════════════
+  # Requirements derived from STPA system constraints
+  # ══════════════════════════════════════════════════════════════════════
+
+  - id: REQ-001
+    type: requirement
+    title: Toolchain integrity verification
+    status: implemented
+    description: >
+      All Lean toolchain archive downloads SHALL be verified against a
+      SHA-256 hash. Downloads without a verified hash SHALL be rejected
+      unless the developer explicitly opts out via require_hashes = False.
+    fields:
+      priority: must
+      category: non-functional
+    links:
+      - type: derives-from
+        target: SC-002
+
+  - id: REQ-002
+    type: requirement
+    title: Lean-Mathlib version compatibility
+    status: implemented
+    description: >
+      The Lean compiler version used for proof compilation SHALL exactly
+      match the version used to build Mathlib oleans. The extension SHALL
+      use the same version string for both lean_release and mathlib_repo.
+    fields:
+      priority: must
+      category: constraint
+    links:
+      - type: derives-from
+        target: SC-001
+
+  - id: REQ-003
+    type: requirement
+    title: Hermetic LEAN_PATH construction
+    status: implemented
+    description: >
+      LEAN_PATH SHALL be constructed exclusively from paths of declared
+      action inputs (stdlib directory, dependency olean directories, and
+      the current target's output directory). No absolute paths, environment
+      variables, or cached paths from prior builds SHALL be used.
+    fields:
+      priority: must
+      category: functional
+    links:
+      - type: derives-from
+        target: SC-003
+
+  - id: REQ-004
+    type: requirement
+    title: Source file deref before compilation
+    status: implemented
+    description: >
+      Source .lean files SHALL be copied into the Bazel output tree
+      (dereferencing symlinks via cp -L) before being passed to the Lean
+      compiler. The compiler SHALL never receive a symlinked source file.
+    fields:
+      priority: must
+      category: constraint
+    links:
+      - type: derives-from
+        target: SC-004
+
+  - id: REQ-005
+    type: requirement
+    title: Platform-correct toolchain selection
+    status: implemented
+    description: >
+      Each toolchain registration SHALL include exec_compatible_with
+      constraints that exactly match the platform of the downloaded binary.
+      The platform artifact naming map SHALL be tested for each release.
+    fields:
+      priority: must
+      category: functional
+    links:
+      - type: derives-from
+        target: SC-005
+
+  - id: REQ-006
+    type: requirement
+    title: Pinned Mathlib revision
+    status: implemented
+    description: >
+      Mathlib SHALL be fetched at a pinned git revision (tag or commit hash)
+      specified via the lean.mathlib(rev = ...) extension tag. Floating
+      branches SHALL NOT be used.
+    fields:
+      priority: must
+      category: constraint
+    links:
+      - type: derives-from
+        target: SC-006
+
+  - id: REQ-007
+    type: requirement
+    title: Explicit action input declaration
+    status: implemented
+    description: >
+      All files accessed during a Lean compilation action SHALL be declared
+      as inputs to ctx.actions.run(). Undeclared host filesystem access
+      SHALL NOT influence build results.
+    fields:
+      priority: should
+      category: non-functional
+    links:
+      - type: derives-from
+        target: SC-007
+
+  - id: REQ-008
+    type: requirement
+    title: Mathlib olean completeness check
+    status: draft
+    description: >
+      After olean consolidation, the mathlib_repo rule SHALL verify that
+      the lib/ directory contains at least Mathlib/, Batteries/, and Aesop/
+      subdirectories with olean files. The fetch SHALL fail if critical
+      packages are missing.
+    fields:
+      priority: should
+      category: functional
+    links:
+      - type: derives-from
+        target: SC-003
+
+  - id: REQ-009
+    type: requirement
+    title: Dev-mode hash opt-out
+    status: implemented
+    description: >
+      The lean.toolchain() tag SHALL accept a require_hashes = False
+      attribute that disables SHA-256 enforcement. This SHALL be documented
+      as development-only and SHALL NOT be used in CI or production builds.
+    fields:
+      priority: must
+      category: functional
+    links:
+      - type: derives-from
+        target: SC-002
