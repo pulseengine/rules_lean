@@ -54,17 +54,19 @@ jobs:
       - name: Verify missing hash fails
         run: |
           cd tests/missing_hash
-          if bazel query '//...' 2>&1; then
+          # Query the toolchain repo to force extension evaluation
+          if bazel query '@lean_toolchains//:all' 2>&1; then
             echo "ERROR: should have failed with missing hash"
             exit 1
           else
-            bazel query '//...' 2>&1 | grep -q "SHA-256 hash missing"
+            bazel query '@lean_toolchains//:all' 2>&1 | grep -q "SHA-256 hash missing"
             echo "PASS: missing hash correctly rejected"
           fi
       - name: Verify dev mode opt-out works
         run: |
           cd tests/dev_mode
-          bazel query '//...' 2>&1
+          # This should succeed — extension allows empty hashes in dev mode
+          bazel query '@lean_toolchains//:all' 2>&1
           echo "PASS: dev mode opt-out accepted"
 
   build-mathlib:
