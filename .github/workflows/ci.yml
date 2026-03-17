@@ -45,6 +45,28 @@ jobs:
       - name: Test hello_lean
         run: bazel test //examples/hello_lean:hello_test
 
+  test-hash-enforcement:
+    name: Test SHA-256 enforcement
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazelbuild/setup-bazelisk@v3
+      - name: Verify missing hash fails
+        run: |
+          cd tests/missing_hash
+          if bazel query '//...' 2>&1; then
+            echo "ERROR: should have failed with missing hash"
+            exit 1
+          else
+            bazel query '//...' 2>&1 | grep -q "SHA-256 hash missing"
+            echo "PASS: missing hash correctly rejected"
+          fi
+      - name: Verify dev mode opt-out works
+        run: |
+          cd tests/dev_mode
+          bazel query '//...' 2>&1
+          echo "PASS: dev mode opt-out accepted"
+
   build-mathlib:
     name: Build mathlib proofs (Linux)
     runs-on: ubuntu-latest

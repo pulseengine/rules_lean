@@ -1,0 +1,16 @@
+module(name = "test_missing_hash", version = "0.0.0")
+
+bazel_dep(name = "rules_lean", version = "0.1.0")
+local_path_override(
+    module_name = "rules_lean",
+    path = "../..",
+)
+
+lean = use_extension("@rules_lean//lean:extensions.bzl", "lean")
+lean.toolchain(
+    version = "99.0.0",  # Unknown version, no hashes in KNOWN_VERSIONS
+    # require_hashes defaults to True — this should fail
+)
+
+use_repo(lean, "lean_toolchains")
+register_toolchains("@lean_toolchains//:all")
