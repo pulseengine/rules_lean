@@ -172,7 +172,7 @@ artifacts:
   - id: SC-002
     type: system-constraint
     title: All toolchain downloads must have verified SHA-256 hashes
-    status: draft
+    status: implemented
     description: >
       Every toolchain archive download must include a non-empty SHA-256 hash.
       The KNOWN_VERSIONS registry must be populated for all supported platforms
@@ -447,8 +447,10 @@ artifacts:
         A new Lean version is added to KNOWN_VERSIONS with empty hash strings,
         or user provides no sha256 overrides for an unknown version.
       rationale: >
-        Without SHA-256 verification, a MITM or compromised CDN could serve
-        a tampered Lean binary that accepts invalid proofs.
+        Mitigated: extension now fail()s when SHA-256 is empty for any
+        platform. Requires explicit require_hashes=False opt-out.
+        Original risk: without SHA-256 verification, a MITM or compromised
+        CDN could serve a tampered Lean binary that accepts invalid proofs.
     links:
       - type: issued-by
         target: CTRL-002
@@ -566,7 +568,7 @@ artifacts:
   - id: CC-002
     type: controller-constraint
     title: Extension must reject empty SHA-256 for known versions
-    status: draft
+    status: implemented
     fields:
       constraint: >
         If a version is in KNOWN_VERSIONS, all platform hashes must be
