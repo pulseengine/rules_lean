@@ -1,0 +1,18 @@
+load("//lean:defs.bzl", "lean_library", "lean_proof_test")
+
+# Multi-file library: Props.lean imports Defs.lean
+lean_library(
+    name = "multi",
+    srcs = [
+        "Defs.lean",    # Must be listed first (dependency order)
+        "Props.lean",   # Imports Defs
+    ],
+)
+
+lean_proof_test(
+    name = "multi_test",
+    srcs = [
+        "Defs.lean",
+        "Props.lean",
+    ],
+)

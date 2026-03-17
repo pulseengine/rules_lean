@@ -112,7 +112,7 @@ artifacts:
   - id: REQ-008
     type: requirement
     title: Mathlib olean completeness check
-    status: draft
+    status: implemented
     description: >
       After olean consolidation, the mathlib_repo rule SHALL verify that
       the lib/ directory contains at least Mathlib/, Batteries/, and Aesop/

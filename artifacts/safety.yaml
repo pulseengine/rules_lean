@@ -717,7 +717,7 @@ artifacts:
   - id: CC-006
     type: controller-constraint
     title: Mathlib consolidation must verify expected modules exist
-    status: draft
+    status: implemented
     fields:
       constraint: After olean consolidation, the repo rule must check that lib/Mathlib/ exists and contains oleans. Fail the fetch if the directory is empty or missing.
     links:

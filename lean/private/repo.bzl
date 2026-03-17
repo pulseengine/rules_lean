@@ -210,6 +210,22 @@ def _mathlib_repo_impl(rctx):
         done
     """])
 
+    # Validate olean consolidation completeness (CC-006)
+    result = rctx.execute(["sh", "-c", """
+        if [ ! -d lib/Mathlib ]; then
+            echo "ERROR: lib/Mathlib/ not found after olean consolidation"
+            exit 1
+        fi
+        count=$(find lib/Mathlib -name '*.olean' | wc -l)
+        if [ "$count" -lt 100 ]; then
+            echo "ERROR: only $count Mathlib oleans found (expected thousands)"
+            exit 1
+        fi
+        echo "Mathlib olean check passed: $count oleans"
+    """])
+    if result.return_code != 0:
+        fail("Mathlib olean consolidation incomplete:\n" + result.stdout + "\n" + result.stderr)
+
     rctx.file("lib/.marker", "")
     rctx.file("BUILD.bazel", _MATHLIB_BUILD_FILE)
 

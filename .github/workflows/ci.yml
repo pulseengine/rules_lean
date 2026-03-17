@@ -44,6 +44,10 @@ jobs:
         run: bazel build //examples/hello_lean:hello
       - name: Test hello_lean
         run: bazel test //examples/hello_lean:hello_test
+      - name: Build multi_file
+        run: bazel build //examples/multi_file:multi
+      - name: Test multi_file
+        run: bazel test //examples/multi_file:multi_test
 
   test-hash-enforcement:
     name: Test SHA-256 enforcement
