@@ -31,6 +31,7 @@ def _detect_host_platform(module_ctx):
 _LeanToolchainTag = tag_class(attrs = {
     "version": attr.string(mandatory = True, doc = "Lean 4 version (e.g. '4.27.0')"),
     "sha256": attr.string_dict(default = {}, doc = "Per-platform SHA-256 overrides (keys: darwin_aarch64, etc.)"),
+    "require_hashes": attr.bool(default = True, doc = "Fail if any platform hash is empty. Set False for development with unreleased versions."),
 })
 
 _LeanMathlibTag = tag_class(attrs = {
@@ -42,12 +43,14 @@ def _lean_impl(module_ctx):
     # Root module's declaration takes precedence over dependencies.
     version = None
     sha256_overrides = {}
+    require_hashes = True
 
     for mod in module_ctx.modules:
         for tag in mod.tags.toolchain:
             if version == None or mod.is_root:
                 version = tag.version
                 sha256_overrides = dict(tag.sha256)
+                require_hashes = tag.require_hashes
 
     if version == None:
         fail("lean.toolchain(version = ...) is required")
@@ -57,6 +60,15 @@ def _lean_impl(module_ctx):
 
     for platform in ALL_PLATFORMS:
         sha256 = sha256_overrides.get(platform, known_sha256.get(platform, ""))
+        if require_hashes and not sha256:
+            fail(
+                "SHA-256 hash missing for lean {version} on {platform}. ".format(
+                    version = version,
+                    platform = platform,
+                ) +
+                "Provide sha256 = {\"" + platform + "\": \"<hash>\"} in lean.toolchain(), " +
+                "or set require_hashes = False for development use only.",
+            )
         lean_release(
             name = "lean_" + platform,
             version = version,
