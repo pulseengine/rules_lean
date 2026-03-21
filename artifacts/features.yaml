@@ -1,0 +1,106 @@
+artifacts:
+  - id: FEAT-001
+    type: feature
+    title: Lean 4 toolchain management
+    status: implemented
+    description: >
+      Downloads pre-built Lean 4 binaries from GitHub releases for macOS
+      (aarch64, x86_64) and Linux (x86_64, aarch64). Registers Bazel
+      toolchains with platform-specific exec constraints. Supports
+      SHA-256 hash verification with per-version registry.
+    fields:
+      phase: phase-1
+    links:
+      - type: satisfies
+        target: REQ-001
+      - type: satisfies
+        target: REQ-005
+      - type: satisfies
+        target: REQ-009
+
+  - id: FEAT-002
+    type: feature
+    title: lean_library compilation rule
+    status: implemented
+    description: >
+      Compiles .lean source files to .olean outputs using per-file
+      ctx.actions.run() with the lean binary as executable. Supports
+      intra-library dependencies (files listed in compilation order),
+      external deps via LeanInfo provider, and LEAN_PATH construction
+      from declared inputs only.
+    fields:
+      phase: phase-1
+    links:
+      - type: satisfies
+        target: REQ-003
+      - type: satisfies
+        target: REQ-004
+      - type: satisfies
+        target: REQ-007
+
+  - id: FEAT-003
+    type: feature
+    title: lean_proof_test verification rule
+    status: implemented
+    description: >
+      Test rule that verifies .lean proofs typecheck at build time.
+      Each source file is typechecked via the lean compiler. Test
+      reports success if all proofs are valid.
+    fields:
+      phase: phase-1
+    links:
+      - type: satisfies
+        target: REQ-003
+      - type: satisfies
+        target: REQ-004
+
+  - id: FEAT-004
+    type: feature
+    title: Mathlib integration
+    status: implemented
+    description: >
+      Fetches Mathlib4 pre-built oleans via lake, consolidates them into
+      a single lib/ directory, and exposes them as a lean_prebuilt_library.
+      Validates olean completeness after consolidation. Uses pinned git
+      revision for reproducibility.
+    fields:
+      phase: phase-1
+    links:
+      - type: satisfies
+        target: REQ-002
+      - type: satisfies
+        target: REQ-006
+      - type: satisfies
+        target: REQ-008
+
+  - id: FEAT-005
+    type: feature
+    title: SHA-256 hash enforcement
+    status: implemented
+    description: >
+      Module extension fails if any platform hash is empty, preventing
+      downloads without integrity verification. require_hashes = False
+      provides an explicit development-mode opt-out. CI tests verify
+      both enforcement and the escape hatch.
+    fields:
+      phase: phase-1
+    links:
+      - type: satisfies
+        target: REQ-001
+      - type: satisfies
+        target: REQ-009
+
+  - id: FEAT-006
+    type: feature
+    title: Aeneas LLBC-to-Lean translation
+    status: draft
+    description: >
+      Downloads pre-built Aeneas binaries from GitHub releases. Provides
+      aeneas_translate rule for converting Charon LLBC files to Lean 4
+      source files. Builds the Aeneas Lean support library from source.
+      Blocked on Lean version compatibility (Aeneas requires 4.28+).
+    fields:
+      phase: phase-2
+    links:
+      - type: satisfies
+        target: REQ-003

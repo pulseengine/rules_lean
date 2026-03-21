@@ -9,7 +9,7 @@
 This project uses **Rivet** for SDLC artifact traceability.
 - Config: `rivet.yaml`
 - Schemas: common, stpa, dev
-- Artifacts: 61 across 11 types
+- Artifacts: 67 across 12 types
 - Validation: `rivet validate` (current status: pass)
 
 ## Available Commands
@@ -36,13 +36,13 @@ This project uses **Rivet** for SDLC artifact traceability.
 | `controller` | 4 | A system component (human or automated) responsible for issuing control actions. Each controller has a process model — its internal beliefs about the state of the controlled process. |
 | `controller-constraint` | 6 | A constraint on a controller's behavior derived by inverting a UCA. Specifies what the controller must or must not do. |
 | `design-decision` | 6 | An architectural or design decision with rationale |
+| `feature` | 6 | A user-visible capability or feature |
 | `hazard` | 7 | A system state or set of conditions that, together with worst-case environmental conditions, will lead to a loss. |
 | `loss` | 4 | An undesired or unplanned event involving something of value to stakeholders. Losses define what the analysis aims to prevent. |
 | `loss-scenario` | 4 | A causal pathway describing how a UCA could occur or how the control action could be improperly executed, leading to a hazard. |
 | `requirement` | 9 | A functional or non-functional requirement |
 | `system-constraint` | 7 | A condition or behavior that must be satisfied to prevent a hazard. Each constraint is the inversion of a hazard. |
 | `uca` | 6 | An Unsafe Control Action — a control action that, in a particular context and worst-case environment, leads to a hazard. Four types (provably complete): 1. Not providing the control action leads to a hazard 2. Providing the control action leads to a hazard 3. Providing too early, too late, or in the wrong order 4. Control action stopped too soon or applied too long |
-| `feature` | 0 | A user-visible capability or feature |
 | `sub-hazard` | 0 | A refinement of a hazard into a more specific unsafe condition. |
 
 ## Working with Artifacts

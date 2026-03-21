@@ -9,3 +9,6 @@ project:
 sources:
   - path: artifacts
     format: generic-yaml
+
+documents:
+  - path: docs
