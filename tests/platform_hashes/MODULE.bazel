@@ -9,5 +9,12 @@ local_path_override(
 lean = use_extension("@rules_lean//lean:extensions.bzl", "lean")
 lean.toolchain(version = "4.27.0")
 
-use_repo(lean, "lean_toolchains")
+use_repo(
+    lean,
+    "lean_toolchains",
+    "lean_darwin_aarch64",
+    "lean_darwin_x86_64",
+    "lean_linux_x86_64",
+    "lean_linux_aarch64",
+)
 register_toolchains("@lean_toolchains//:all")
