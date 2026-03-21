@@ -700,6 +700,56 @@ artifacts:
       - type: leads-to-hazard
         target: H-002
 
+      - type: caused-by-uca
+        target: UCA-002
+
+  - id: LS-005
+    type: loss-scenario
+    title: Bazel cache serves stale LeanInfo after dependency version change
+    status: reviewed
+    description: >
+      Developer updates a dependency's Lean version in MODULE.bazel but
+      Bazel's analysis cache still holds the old LeanInfo provider with
+      the previous olean directory path. The stale LEAN_PATH entry points
+      to oleans from the old version. Lean resolves imports from wrong
+      oleans, potentially accepting proofs that would fail against the
+      new version's definitions.
+    fields:
+      scenario-type: inadequate-process-model
+      causal-factors:
+        - Bazel caches provider values across builds
+        - LEAN_PATH entries are string paths that survive cache invalidation boundaries
+        - No runtime check that olean version matches compiler version
+    links:
+      - type: caused-by-uca
+        target: UCA-003
+      - type: leads-to-hazard
+        target: H-003
+
+  - id: LS-006
+    type: loss-scenario
+    title: Code change removes _copy_src call, lean receives symlinked source
+    status: reviewed
+    description: >
+      A refactor of lean.bzl removes or bypasses the _copy_src helper,
+      passing the original source file (a symlink in the execroot) directly
+      to the lean compiler. Lean's moduleNameOfFileName resolves the
+      symlink, finds the canonical path outside the execroot, and rejects
+      the file with "must be contained in root directory." On platforms
+      where symlink resolution behaves differently, lean might silently
+      process a stale cached version of the file.
+    fields:
+      scenario-type: inadequate-control-algorithm
+      causal-factors:
+        - _copy_src is a convention, not enforced by the type system
+        - No CI test that specifically validates symlink handling
+        - Lean's path validation behavior varies by platform
+    links:
+      - type: caused-by-uca
+        target: UCA-004
+      - type: leads-to-hazard
+        target: H-004
+
   - id: CC-005
     type: controller-constraint
     title: Platform maps must be validated against release artifacts
