@@ -73,6 +73,21 @@ jobs:
           bazel query '@lean_toolchains//:all' 2>&1
           echo "PASS: dev mode opt-out accepted"
 
+  test-platform-downloads:
+    name: Verify all platform downloads (CC-005)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazelbuild/setup-bazelisk@v3
+      - name: Verify all 4 platform archives download + extract with correct SHA-256
+        run: |
+          cd tests/platform_hashes
+          for platform in darwin_aarch64 darwin_x86_64 linux_x86_64 linux_aarch64; do
+            echo "--- Testing lean_${platform} ---"
+            bazel query "@lean_${platform}//:lean_toolchain_info" 2>&1
+            echo "PASS: lean_${platform}"
+          done
+
   build-mathlib:
     name: Build mathlib proofs (Linux)
     runs-on: ubuntu-latest

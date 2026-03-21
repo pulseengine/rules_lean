@@ -753,7 +753,7 @@ artifacts:
   - id: CC-005
     type: controller-constraint
     title: Platform maps must be validated against release artifacts
-    status: draft
+    status: implemented
     fields:
       constraint: Every entry in _PLATFORM_ARTIFACT must be verified against actual Lean release archive names. CI must test that download_and_extract succeeds for each platform.
     links:
@@ -777,3 +777,11 @@ artifacts:
         target: UCA-006
       - type: prevents
         target: H-003
+
+  - id: SC-008
+    type: system-constraint
+    title: Mathlib revision must match Lean version
+    status: implemented
+    links:
+      - type: prevents
+        target: H-001

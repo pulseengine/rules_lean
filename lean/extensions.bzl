@@ -86,6 +86,21 @@ def _lean_impl(module_ctx):
 
     for mod in module_ctx.modules:
         for tag in mod.tags.mathlib:
+            # Validate Lean↔Mathlib version compatibility (LS-001 mitigation).
+            # Mathlib tags follow "v{lean_version}" convention. Warn if mismatch.
+            expected_rev = "v" + version
+            if tag.rev != expected_rev and version in tag.rev:
+                pass  # Close enough (e.g., "v4.27.0-rc1" for "4.27.0")
+            elif tag.rev != expected_rev:
+                # buildifier: disable=print
+                print(
+                    "WARNING: Mathlib rev '{}' does not match Lean version '{}'. ".format(
+                        tag.rev, version,
+                    ) +
+                    "Expected '{}'. Mismatched versions cause olean incompatibility.".format(
+                        expected_rev,
+                    ),
+                )
             mathlib_repo(
                 name = "mathlib",
                 host_platform = host_platform,
