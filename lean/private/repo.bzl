@@ -211,17 +211,30 @@ def _mathlib_repo_impl(rctx):
     """])
 
     # Validate olean consolidation completeness (CC-006)
+    # Check Mathlib and its critical transitive dependencies
     result = rctx.execute(["sh", "-c", """
-        if [ ! -d lib/Mathlib ]; then
-            echo "ERROR: lib/Mathlib/ not found after olean consolidation"
+        ok=true
+        for pkg in Mathlib Batteries Aesop; do
+            if [ ! -d "lib/$pkg" ]; then
+                echo "ERROR: lib/$pkg/ not found after olean consolidation"
+                ok=false
+            else
+                count=$(find "lib/$pkg" -name '*.olean' | wc -l)
+                echo "$pkg: $count oleans"
+                if [ "$count" -lt 10 ]; then
+                    echo "ERROR: only $count $pkg oleans found (expected more)"
+                    ok=false
+                fi
+            fi
+        done
+        mathlib_count=$(find lib/Mathlib -name '*.olean' | wc -l)
+        if [ "$mathlib_count" -lt 100 ]; then
+            echo "ERROR: only $mathlib_count Mathlib oleans (expected thousands)"
+            ok=false
+        fi
+        if [ "$ok" = false ]; then
             exit 1
         fi
-        count=$(find lib/Mathlib -name '*.olean' | wc -l)
-        if [ "$count" -lt 100 ]; then
-            echo "ERROR: only $count Mathlib oleans found (expected thousands)"
-            exit 1
-        fi
-        echo "Mathlib olean check passed: $count oleans"
     """])
     if result.return_code != 0:
         fail("Mathlib olean consolidation incomplete:\n" + result.stdout + "\n" + result.stderr)

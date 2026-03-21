@@ -48,6 +48,21 @@ jobs:
         run: bazel build //examples/multi_file:multi
       - name: Test multi_file
         run: bazel test //examples/multi_file:multi_test
+      - name: Verify source copies are not symlinks (LS-006)
+        run: |
+          # _copy_src must produce real files, not symlinks
+          copies=$(find bazel-bin/examples/hello_lean -name '*.lean' -path '*_src/*' 2>/dev/null)
+          if [ -z "$copies" ]; then
+            echo "ERROR: no source copies found in bazel-bin"
+            exit 1
+          fi
+          for f in $copies; do
+            if [ -L "$f" ]; then
+              echo "ERROR: $f is a symlink (should be a real file)"
+              exit 1
+            fi
+            echo "PASS: $f is a real file"
+          done
 
   test-hash-enforcement:
     name: Test SHA-256 enforcement
