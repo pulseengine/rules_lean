@@ -8,7 +8,7 @@ _KNOWN_VERSIONS = {
             "darwin_aarch64": "01e7d9130464bc7d847baece07dfb2c4f48dd02e71b4b9a77d484914ea594efb",
             "darwin_x86_64": "e4ca541d86881c35497cb6e6c1a21358f03a4b2cfb2e8d4e14e58dc2a0a805ae",
             "linux_x86_64": "056e2dc8564fc064a801e69f3eb18c044b9b546bc8b0e5a2c00247f8a1cb8ce6",
-            "linux_aarch64": "fe229059c9050ccf79111a4ba8ea1ebbcb8d3b06075cfee1a57edb97544d4e2a",
+            "linux_aarch64": "b256eec276baaaccc3eb3fa64d7ccff64f710b7caa074f305ba95e0013ad31e7",
         },
     },
 }
