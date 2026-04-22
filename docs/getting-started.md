@@ -20,7 +20,7 @@ Add to your `MODULE.bazel`:
 bazel_dep(name = "rules_lean", version = "0.1.0")
 
 lean = use_extension("@rules_lean//lean:extensions.bzl", "lean")
-lean.toolchain(version = "4.27.0")
+lean.toolchain(version = "4.29.1")
 
 use_repo(lean, "lean_toolchains")
 register_toolchains("@lean_toolchains//:all")
@@ -65,8 +65,8 @@ To use Mathlib lemmas and tactics, add to `MODULE.bazel`:
 
 ```starlark
 lean = use_extension("@rules_lean//lean:extensions.bzl", "lean")
-lean.toolchain(version = "4.27.0")
-lean.mathlib(rev = "v4.27.0")
+lean.toolchain(version = "4.29.1")
+lean.mathlib(rev = "v4.29.1")
 
 use_repo(lean, "lean_toolchains", "mathlib")
 register_toolchains("@lean_toolchains//:all")
@@ -103,12 +103,13 @@ lean_library(
 ## SHA-256 Verification
 
 By default, all toolchain downloads require SHA-256 verification.
-Known versions (currently 4.27.0) have hashes built in. For development
-with unreleased versions, opt out explicitly:
+Known versions (4.27.0, 4.29.1) have hashes built in. Older pins remain
+in the registry so downstream consumers can upgrade on their own cadence.
+For development with unreleased versions, opt out explicitly:
 
 ```starlark
 lean.toolchain(
-    version = "4.28.0-rc1",
+    version = "4.30.0-rc2",
     require_hashes = False,  # Development only!
 )
 ```

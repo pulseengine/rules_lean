@@ -1,0 +1,89 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+# Host-specific aliases so the sh_test can reference a single label. The
+# charon_<platform> repositories are all materialised (including the
+# linux_aarch64 stub which fails at runtime with a clear error); these
+# config_settings pick the binary matching the exec platform.
+
+config_setting(
+    name = "macos_aarch64",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:aarch64",
+    ],
+)
+
+config_setting(
+    name = "macos_x86_64",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+config_setting(
+    name = "linux_x86_64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+config_setting(
+    name = "linux_aarch64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+)
+
+alias(
+    name = "charon_bin",
+    actual = select({
+        ":macos_aarch64": "@charon_macos_aarch64//:charon_bin",
+        ":macos_x86_64": "@charon_macos_x86_64//:charon_bin",
+        ":linux_x86_64": "@charon_linux_x86_64//:charon_bin",
+        ":linux_aarch64": "@charon_linux_aarch64//:charon_bin",
+    }),
+)
+
+alias(
+    name = "charon_all_files",
+    actual = select({
+        ":macos_aarch64": "@charon_macos_aarch64//:all_files",
+        ":macos_x86_64": "@charon_macos_x86_64//:all_files",
+        ":linux_x86_64": "@charon_linux_x86_64//:all_files",
+        ":linux_aarch64": "@charon_linux_aarch64//:all_files",
+    }),
+)
+
+sh_test(
+    name = "charon_version_smoke",
+    srcs = ["charon_version_smoke.sh"],
+    data = [
+        ":charon_bin",
+        ":charon_all_files",
+    ],
+    args = ["$(rootpath :charon_bin)"],
+)
+
+# A build-time version check: asserts the downloaded `charon` binary prints
+# exactly "0.1.181". Useful for environments where `bazel test` is not
+# permitted; `bazel build //:charon_version_check` is sufficient.
+genrule(
+    name = "charon_version_check",
+    srcs = [":charon_all_files"],
+    outs = ["charon_version_check.stamp"],
+    tools = [":charon_bin"],
+    cmd = """
+set -euo pipefail
+OUT="$$($(execpath :charon_bin) version)"
+echo "charon version output: $$OUT"
+if [ "$$OUT" != "0.1.181" ]; then
+    echo "ERROR: expected 0.1.181, got '$$OUT'" >&2
+    exit 1
+fi
+echo "charon $$OUT OK" > $@
+""",
+    testonly = True,
+)
