@@ -93,12 +93,15 @@ artifacts:
   - id: FEAT-006
     type: feature
     title: Aeneas LLBC-to-Lean translation
-    status: draft
+    status: in_progress
     description: >
       Downloads pre-built Aeneas binaries from GitHub releases. Provides
       aeneas_translate rule for converting Charon LLBC files to Lean 4
       source files. Builds the Aeneas Lean support library from source.
-      Blocked on Lean version compatibility (Aeneas requires 4.28+).
+      Charon toolchain (Rust → LLBC) integrated via pure-Bazel prebuilt
+      downloads + matching Rust sysroot (see DD-007). Remaining work:
+      charon_llbc build rule wiring the sysroot env vars, then end-to-end
+      example on a cleanly-translatable crate.
     fields:
       phase: phase-2
     links:
