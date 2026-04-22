@@ -8,6 +8,7 @@ local_path_override(
 
 bazel_dep(name = "bazel_skylib", version = "1.7.1")
 bazel_dep(name = "platforms", version = "0.0.11")
+bazel_dep(name = "rules_shell", version = "0.3.0")
 
 aeneas = use_extension("@rules_lean//aeneas:extensions.bzl", "aeneas")
 aeneas.charon_toolchain(
