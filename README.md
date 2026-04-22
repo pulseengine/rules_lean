@@ -11,7 +11,7 @@ Add to your `MODULE.bazel`:
 bazel_dep(name = "rules_lean", version = "0.1.0")
 
 lean = use_extension("@rules_lean//lean:extensions.bzl", "lean")
-lean.toolchain(version = "4.27.0")
+lean.toolchain(version = "4.29.1")
 
 use_repo(lean, "lean_toolchains")
 register_toolchains("@lean_toolchains//:all")
@@ -21,8 +21,8 @@ register_toolchains("@lean_toolchains//:all")
 
 ```starlark
 lean = use_extension("@rules_lean//lean:extensions.bzl", "lean")
-lean.toolchain(version = "4.27.0")
-lean.mathlib(rev = "v4.27.0")
+lean.toolchain(version = "4.29.1")
+lean.mathlib(rev = "v4.29.1")
 
 use_repo(lean, "lean_toolchains", "mathlib")
 register_toolchains("@lean_toolchains//:all")
@@ -103,7 +103,7 @@ For reproducible builds, provide SHA-256 hashes per platform:
 
 ```starlark
 lean.toolchain(
-    version = "4.27.0",
+    version = "4.29.1",
     sha256 = {
         "darwin_aarch64": "abc123...",
         "darwin_x86_64": "def456...",
@@ -137,7 +137,7 @@ aeneas = use_extension("@rules_lean//aeneas:extensions.bzl", "aeneas")
 aeneas.toolchain(
     version = "build-2026.03.14.003732-912707da86162a566cd8b01f137383ec411b31de",
     rev = "912707da86162a566cd8b01f137383ec411b31de",
-    lean_version = "4.27.0",
+    lean_version = "4.29.1",
 )
 
 use_repo(aeneas, "aeneas_toolchains", "aeneas_lean_lib")

@@ -7,8 +7,8 @@ bazel_dep(name = "bazel_skylib", version = "1.7.1")
 bazel_dep(name = "platforms", version = "0.0.11")
 
 lean = use_extension("//lean:extensions.bzl", "lean")
-lean.toolchain(version = "4.27.0")
-lean.mathlib(rev = "v4.27.0")
+lean.toolchain(version = "4.29.1")
+lean.mathlib(rev = "v4.29.1")
 
 use_repo(lean, "lean_toolchains", "mathlib")
 

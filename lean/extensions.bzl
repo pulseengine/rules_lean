@@ -11,6 +11,14 @@ _KNOWN_VERSIONS = {
             "linux_aarch64": "b256eec276baaaccc3eb3fa64d7ccff64f710b7caa074f305ba95e0013ad31e7",
         },
     },
+    "4.29.1": {
+        "sha256": {
+            "darwin_aarch64": "73bccb392ca7d8ab3d62a1e328bb7d057815f088dbdbfb6574f194ae505797af",
+            "darwin_x86_64": "3585ab34d20c53cf915169aa5c0d2efbd9993a78b9dc08516641510eef08fab0",
+            "linux_x86_64": "bf062d29556d655685fb287563c249ad6a8fde34352c18b5e32568a595c1aec1",
+            "linux_aarch64": "1ccdfb7f924901f4b73a4b4eb169e5b3dc74f6836521b47e733ea25f2abfc0dc",
+        },
+    },
 }
 
 def _detect_host_platform(module_ctx):
