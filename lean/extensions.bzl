@@ -110,22 +110,28 @@ def _lean_impl(module_ctx):
     # with differing attrs is otherwise a hard Bazel "repo already generated"
     # error, so collapsing to a single declaration is also required for
     # correctness, not just hygiene.
+    # mathlib is "wanted" if ANY module declares a tag, but the rev is taken
+    # ONLY from the root module. A dependency (e.g. rules_lean's own
+    # MODULE.bazel, which pins a rev for its own examples) must NOT impose that
+    # rev on a consumer that picked a different toolchain — doing so is exactly
+    # the skew that breaks downstream builds. When the root gives no rev, the
+    # rev defaults to the tag matching the active toolchain (below).
+    mathlib_wanted = False
     mathlib_rev = None
-    mathlib_requested = False
     for mod in module_ctx.modules:
         for tag in mod.tags.mathlib:
-            mathlib_requested = True
-            if mathlib_rev == None or mod.is_root:
+            mathlib_wanted = True
+            if mod.is_root and tag.rev:
                 mathlib_rev = tag.rev
 
-    if mathlib_requested:
+    if mathlib_wanted:
         # Bug #3: never let an empty rev reach lake as `@ ""` — lake resolves
         # that to mathlib4 HEAD, which tracks the newest Lean and is guaranteed
         # to skew against any pinned toolchain. Default to the matching tag.
         if not mathlib_rev:
             mathlib_rev = "v" + version
             # buildifier: disable=print
-            print("lean.mathlib: no rev given; defaulting to '{}' to match lean.toolchain({}).".format(
+            print("lean.mathlib: no root rev given; defaulting to '{}' to match lean.toolchain({}).".format(
                 mathlib_rev,
                 version,
             ))
