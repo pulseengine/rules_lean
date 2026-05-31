@@ -2,7 +2,7 @@
 # Compare two Charon-integration tracks head-to-head.
 #
 # Gates (pass/fail):
-#   - build:        bazel build @charon_toolchain//:charon_bin succeeds
+#   - build:        bazel build //:charon_bin (in tests/charon_smoke) succeeds
 #   - smoke:        `charon version` emits the expected string (0.1.181)
 #   - hermetic:     no ambient-tool references (rustup, ~/.cargo, /nix/store)
 #                   appear in the build log after initial download
@@ -107,6 +107,11 @@ run_track() {
     log "=== track $name at $dir ==="
     cd "$dir" || { echo "build=FAIL" > "$out/result.env"; return; }
 
+    # Charon is wired only in the tests/charon_smoke module (the root module
+    # does not use_repo the charon repos), so every charon build runs there and
+    # references the host-select alias //:charon_bin.
+    local smoke_dir="$PWD/tests/charon_smoke"
+
     # Gate 1: build
     log "[$name] bazel clean --expunge"
     bazel clean --expunge >/dev/null 2>&1 || true
@@ -114,7 +119,7 @@ run_track() {
     log "[$name] cold build 1/2"
     local t0 t1 build_status
     t0=$(date +%s)
-    if bazel build @charon_toolchain//:charon_bin 2>&1 | tee "$out/build1.log" \
+    if ( cd "$smoke_dir" && bazel build //:charon_bin ) 2>&1 | tee "$out/build1.log" \
         | grep -qE '^(ERROR|FAIL):'; then
         build_status=FAIL
     elif ! [ -f "$(bazel info execution_root 2>/dev/null)/bazel-out/../external/" ] && \
@@ -129,7 +134,7 @@ run_track() {
 
     # Stronger pass check: did charon actually land?
     local h1
-    h1=$(hash_charon_bin "$dir")
+    h1=$(hash_charon_bin "$smoke_dir")
     if [ "$h1" = "MISSING" ]; then
         build_status=FAIL
     else
@@ -140,15 +145,15 @@ run_track() {
     local smoke_status=FAIL
     if [ "$build_status" = PASS ]; then
         log "[$name] smoke: charon version"
-        if bazel run --ui_event_filters=-info,-stdout,-stderr @charon_toolchain//:charon_bin \
-                -- version 2>"$out/smoke.err" >"$out/smoke.out"; then
+        if ( cd "$smoke_dir" && bazel run --ui_event_filters=-info,-stdout,-stderr //:charon_bin \
+                -- version ) 2>"$out/smoke.err" >"$out/smoke.out"; then
             if grep -q "$EXPECTED_VERSION" "$out/smoke.out"; then
                 smoke_status=PASS
             fi
         fi
-        # Fallback: try the tests/charon_smoke target if present.
+        # Fallback: run the charon_smoke sh_test in its module.
         if [ "$smoke_status" != PASS ] \
-           && bazel test //tests/charon_smoke/... 2>&1 | tee "$out/smoke_test.log" \
+           && ( cd "$smoke_dir" && bazel test //... ) 2>&1 | tee "$out/smoke_test.log" \
               | grep -q 'PASSED'; then
             smoke_status=PASS
         fi
@@ -163,8 +168,8 @@ run_track() {
     if [ "$build_status" = PASS ]; then
         log "[$name] cold build 2/2 (reproducibility)"
         bazel clean --expunge >/dev/null 2>&1
-        bazel build @charon_toolchain//:charon_bin 2>&1 > "$out/build2.log" || true
-        h2=$(hash_charon_bin "$dir")
+        ( cd "$smoke_dir" && bazel build //:charon_bin ) 2>&1 > "$out/build2.log" || true
+        h2=$(hash_charon_bin "$smoke_dir")
         if [ "$h1" = "$h2" ] && [ "$h1" != "MISSING" ]; then
             repro_status=PASS
         fi
@@ -172,7 +177,7 @@ run_track() {
 
     # Size
     local repo_mb
-    repo_mb=$(repo_cache_mb "$dir")
+    repo_mb=$(repo_cache_mb "$smoke_dir")
 
     # Record
     cat > "$out/result.env" <<EOF
