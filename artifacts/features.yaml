@@ -107,3 +107,5 @@ artifacts:
     links:
       - type: satisfies
         target: REQ-003
+      - type: derives-from
+        target: DD-007
