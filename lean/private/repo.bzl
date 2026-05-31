@@ -119,14 +119,20 @@ lean_prebuilt_library(
 )
 """
 
+_MATHLIB_GIT_URL = "https://github.com/leanprover-community/mathlib4.git"
+
+# Mathlib is consumed from a LOCAL checkout (see `_mathlib_repo_impl`), not via
+# `require ... from git`. Lake's git resolver does a full-history clone (~2 GB)
+# with no `--depth` knob, which times out on a cold cache; pointing the require
+# at a shallow local checkout avoids that entirely while keeping the checkout's
+# `.git` so `lake exe cache get` can still resolve the olean cache key.
 _LAKEFILE_TEMPLATE = """\
 import Lake
 open Lake DSL
 
 package «mathlib_fetch»
 
-require mathlib from git
-  "https://github.com/leanprover-community/mathlib4.git" @ "{rev}"
+require mathlib from "{path}"
 """
 
 def _mathlib_repo_impl(rctx):
@@ -150,7 +156,6 @@ def _mathlib_repo_impl(rctx):
     lake = rctx.path("_lean_toolchain/bin/lake")
 
     rctx.file("lean-toolchain", "leanprover/lean4:v" + version + "\n")
-    rctx.file("lakefile.lean", _LAKEFILE_TEMPLATE.format(rev = rctx.attr.mathlib_rev))
 
     lean_dir = str(lean.dirname)
     env = {
@@ -158,11 +163,53 @@ def _mathlib_repo_impl(rctx):
         "HOME": str(rctx.path(".")),
     }
 
-    # Fetch mathlib dependency tree
+    # ── Shallow pre-clone of mathlib4 at the pinned rev ──────────────────────
+    # Fetch ONLY the pinned tag/commit with depth 1 (seconds, not minutes)
+    # instead of letting `lake update` full-history-clone the ~2 GB monorepo.
+    # The `git init` + `fetch <rev>` + `checkout FETCH_HEAD` form accepts both
+    # tags and bare SHAs (unlike `git clone --branch`, which rejects SHAs).
+    rev = rctx.attr.mathlib_rev
+    src = rctx.path("mathlib4_src")
+    init = rctx.execute(["git", "init", "-q", str(src)])
+    if init.return_code != 0:
+        fail("git init for mathlib4 checkout failed:\n" + init.stderr)
+
+    # An `origin` remote pointing at the GitHub repo is REQUIRED: Mathlib's
+    # `lake exe cache get` runs `git remote get-url origin` to derive which
+    # repository's olean cache bucket to download from. Without it, cache get
+    # aborts ("No such remote 'origin'") and falls back to a multi-hour build.
+    remote = rctx.execute(["git", "-C", str(src), "remote", "add", "origin", _MATHLIB_GIT_URL])
+    if remote.return_code != 0:
+        fail("git remote add origin for mathlib4 failed:\n" + remote.stderr)
+    fetch = rctx.execute(
+        ["git", "-C", str(src), "fetch", "--depth", "1", "--no-tags", "origin", rev],
+        # Defense-in-depth: a single shallow tree is fast, but keep a generous
+        # ceiling for slow networks / large single trees.
+        timeout = 3600,
+        quiet = False,
+    )
+    if fetch.return_code != 0:
+        fail("shallow `git fetch` of mathlib4 @ '{}' failed:\n{}".format(rev, fetch.stderr))
+    checkout = rctx.execute(["git", "-C", str(src), "checkout", "-q", "FETCH_HEAD"])
+    if checkout.return_code != 0:
+        fail("`git checkout FETCH_HEAD` for mathlib4 @ '{}' failed:\n{}".format(rev, checkout.stderr))
+
+    # Sanity-check the checkout looks like mathlib before lake touches it, so a
+    # bad/force-moved rev fails here with a clear message rather than deep inside
+    # `lake update`. mathlib4 ships a lakefile.lean (older) or lakefile.toml.
+    has_lakefile = rctx.path(str(src) + "/lakefile.lean").exists or \
+                   rctx.path(str(src) + "/lakefile.toml").exists
+    if not has_lakefile:
+        fail("mathlib4 @ '{}' has no lakefile.lean/.toml after checkout — bad rev?".format(rev))
+
+    # Point lake at the LOCAL checkout (absolute path). `lake update` now only
+    # resolves mathlib's small transitive deps (Batteries, Aesop, ...) from
+    # mathlib's own manifest — it never re-clones the monorepo.
+    rctx.file("lakefile.lean", _LAKEFILE_TEMPLATE.format(path = str(src)))
     result = rctx.execute(
         [str(lake), "update"],
         environment = env,
-        timeout = 600,
+        timeout = 3600,
         quiet = False,
     )
     if result.return_code != 0:
@@ -190,47 +237,73 @@ def _mathlib_repo_impl(rctx):
 
     # Consolidate all package oleans into lib/
     # Lake v4 stores oleans at: .lake/packages/<name>/.lake/build/lib/lean/<Module>/...
-    rctx.execute(["mkdir", "-p", "lib"])
-    rctx.execute(["sh", "-c", """
+    # Errors are NOT swallowed: `set -e` aborts on any failure and we check the
+    # return code, so a partial/failed copy is attributed to the copy step
+    # rather than silently surfacing later as a downstream "missing olean".
+    mk = rctx.execute(["mkdir", "-p", "lib"])
+    if mk.return_code != 0:
+        fail("mkdir lib failed:\n" + mk.stderr)
+    consolidate = rctx.execute(["sh", "-c", """
         set -e
         for d in .lake/packages/*/; do
             for lib_dir in "${d}.lake/build/lib/lean" "${d}.lake/build/lib" "${d}build/lib/lean" "${d}build/lib"; do
                 if [ -d "$lib_dir" ] && ls "$lib_dir"/ >/dev/null 2>&1; then
-                    cp -rn "$lib_dir"/* lib/ 2>/dev/null || true
+                    cp -R "$lib_dir"/. lib/
                     break
                 fi
             done
         done
+        # Mathlib itself is a LOCAL-PATH dependency, so its oleans build under
+        # mathlib4_src/.lake/build (NOT .lake/packages, where the git-require
+        # layout used to put them). Copy them explicitly.
+        for lib_dir in mathlib4_src/.lake/build/lib/lean mathlib4_src/.lake/build/lib; do
+            if [ -d "$lib_dir" ] && ls "$lib_dir"/ >/dev/null 2>&1; then
+                cp -R "$lib_dir"/. lib/
+                break
+            fi
+        done
         # Also check root package build
         for lib_dir in .lake/build/lib/lean .lake/build/lib; do
             if [ -d "$lib_dir" ]; then
-                cp -rn "$lib_dir"/* lib/ 2>/dev/null || true
+                cp -R "$lib_dir"/. lib/
                 break
             fi
         done
     """])
+    if consolidate.return_code != 0:
+        fail("olean consolidation copy failed:\n" + consolidate.stdout + "\n" + consolidate.stderr)
 
-    # Validate olean consolidation completeness (CC-006)
-    # Check Mathlib and its critical transitive dependencies
+    # Validate olean consolidation completeness (CC-006).
+    # Data-driven: compare the total olean count across ALL source build trees
+    # (transitive deps under .lake/packages PLUS the local mathlib checkout) to
+    # what landed in lib/. A dropped package shows up as a large shortfall; a
+    # 95% floor tolerates benign layout duplicates without being brittle to an
+    # off-by-one. The explicit Mathlib floor guards against a degenerate fetch
+    # where transitive deps copy but Mathlib itself does not.
     result = rctx.execute(["sh", "-c", """
         ok=true
-        for pkg in Mathlib Batteries Aesop; do
-            if [ ! -d "lib/$pkg" ]; then
-                echo "ERROR: lib/$pkg/ not found after olean consolidation"
-                ok=false
-            else
-                count=$(find "lib/$pkg" -name '*.olean' | wc -l)
-                echo "$pkg: $count oleans"
-                if [ "$count" -lt 10 ]; then
-                    echo "ERROR: only $count $pkg oleans found (expected more)"
-                    ok=false
-                fi
-            fi
-        done
-        mathlib_count=$(find lib/Mathlib -name '*.olean' | wc -l)
-        if [ "$mathlib_count" -lt 100 ]; then
-            echo "ERROR: only $mathlib_count Mathlib oleans (expected thousands)"
+        src_count=$( { find .lake/packages -name '*.olean'; \
+                       find mathlib4_src/.lake/build -name '*.olean'; \
+                       find .lake/build -name '*.olean'; } 2>/dev/null | wc -l | tr -d ' ')
+        dst_count=$(find lib -name '*.olean' | wc -l | tr -d ' ')
+        echo "oleans: source=$src_count consolidated=$dst_count"
+        if [ "$src_count" -eq 0 ]; then
+            echo "ERROR: no source oleans found (fetch/cache-get produced nothing)"
             ok=false
+        elif [ "$dst_count" -lt $(( src_count * 95 / 100 )) ]; then
+            echo "ERROR: consolidated $dst_count of $src_count source oleans (<95%, package likely dropped)"
+            ok=false
+        fi
+        if [ ! -d lib/Mathlib ]; then
+            echo "ERROR: lib/Mathlib/ not found after consolidation"
+            ok=false
+        else
+            mathlib_count=$(find lib/Mathlib -name '*.olean' | wc -l | tr -d ' ')
+            echo "Mathlib: $mathlib_count oleans"
+            if [ "$mathlib_count" -lt 1000 ]; then
+                echo "ERROR: only $mathlib_count Mathlib oleans (expected thousands)"
+                ok=false
+            fi
         fi
         if [ "$ok" = false ]; then
             exit 1
