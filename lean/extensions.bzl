@@ -35,8 +35,28 @@ _LeanToolchainTag = tag_class(attrs = {
 })
 
 _LeanMathlibTag = tag_class(attrs = {
-    "rev": attr.string(mandatory = True, doc = "Mathlib4 git revision or tag (e.g. 'v4.27.0')"),
+    "rev": attr.string(
+        default = "",
+        doc = "Mathlib4 git tag (e.g. 'v4.27.0') or commit SHA. " +
+              "Empty defaults to 'v' + the active toolchain version.",
+    ),
 })
+
+# Mathlib release tags follow the "v{lean_version}" convention.
+def _required_lean_from_rev(rev):
+    """Derive the Lean version a Mathlib rev requires.
+
+    Returns (lean_version | None, is_sha):
+      - "v4.29.1"      -> ("4.29.1", False)
+      - "v4.29.1-rc1"  -> ("4.29.1", False)   # pre-release suffix dropped
+      - 40-char hex    -> (None, True)        # bare SHA: version not inferable
+    """
+    lowered = rev.lower()
+    is_sha = len(rev) == 40 and all([c in "0123456789abcdef" for c in lowered.elems()])
+    if is_sha:
+        return None, True
+    base = rev[1:] if rev.startswith("v") else rev
+    return base.split("-")[0], False
 
 def _lean_impl(module_ctx):
     # ── Toolchain ────────────────────────────────────────────────────────
@@ -84,29 +104,64 @@ def _lean_impl(module_ctx):
     # ── Mathlib (optional) ───────────────────────────────────────────────
     host_platform = _detect_host_platform(module_ctx)
 
+    # Select ONE Mathlib rev with the same root-precedence rule as the toolchain
+    # loop above: the root module wins, so a consumer can always override a
+    # dependency's pinned rev. Declaring `mathlib` more than once per extension
+    # with differing attrs is otherwise a hard Bazel "repo already generated"
+    # error, so collapsing to a single declaration is also required for
+    # correctness, not just hygiene.
+    mathlib_rev = None
+    mathlib_requested = False
     for mod in module_ctx.modules:
         for tag in mod.tags.mathlib:
-            # Validate Lean↔Mathlib version compatibility (LS-001 mitigation).
-            # Mathlib tags follow "v{lean_version}" convention. Warn if mismatch.
-            expected_rev = "v" + version
-            if tag.rev != expected_rev and version in tag.rev:
-                pass  # Close enough (e.g., "v4.27.0-rc1" for "4.27.0")
-            elif tag.rev != expected_rev:
-                # buildifier: disable=print
-                print(
-                    "WARNING: Mathlib rev '{}' does not match Lean version '{}'. ".format(
-                        tag.rev, version,
-                    ) +
-                    "Expected '{}'. Mismatched versions cause olean incompatibility.".format(
-                        expected_rev,
-                    ),
-                )
-            mathlib_repo(
-                name = "mathlib",
-                host_platform = host_platform,
-                lean_version = version,
-                mathlib_rev = tag.rev,
+            mathlib_requested = True
+            if mathlib_rev == None or mod.is_root:
+                mathlib_rev = tag.rev
+
+    if mathlib_requested:
+        # Bug #3: never let an empty rev reach lake as `@ ""` — lake resolves
+        # that to mathlib4 HEAD, which tracks the newest Lean and is guaranteed
+        # to skew against any pinned toolchain. Default to the matching tag.
+        if not mathlib_rev:
+            mathlib_rev = "v" + version
+            # buildifier: disable=print
+            print("lean.mathlib: no rev given; defaulting to '{}' to match lean.toolchain({}).".format(
+                mathlib_rev,
+                version,
+            ))
+
+        # Bug #2 (LS-001 mitigation): fail LOUDLY on Lean↔Mathlib skew BEFORE
+        # the fetch. A mismatched pair makes lake try to switch toolchains via
+        # Elan (absent in a hermetic build), surfacing as the undiscoverable
+        # "info: no Elan detected" deep inside `lake update`.
+        required_lean, is_sha = _required_lean_from_rev(mathlib_rev)
+        if is_sha:
+            # buildifier: disable=print
+            print("lean.mathlib(rev = '{}') is a bare commit SHA; cannot verify it matches lean.toolchain({}).".format(
+                mathlib_rev,
+                version,
+            ))
+        elif required_lean != version:
+            fail(
+                ("Lean/Mathlib version skew: lean.mathlib(rev = '{rev}') requires Lean " +
+                 "'{req}', but the active lean.toolchain is '{ver}'. Mismatched versions " +
+                 "produce incompatible oleans and make lake attempt an Elan toolchain " +
+                 "switch, which fails later with a cryptic error deep inside the fetch.\n" +
+                 "To fix, align lean.toolchain and lean.mathlib:\n" +
+                 "  - set lean.toolchain(version = '{req}') to match the Mathlib rev, or\n" +
+                 "  - pin lean.mathlib(rev = 'v{ver}') to match the toolchain.").format(
+                    rev = mathlib_rev,
+                    req = required_lean,
+                    ver = version,
+                ),
             )
+
+        mathlib_repo(
+            name = "mathlib",
+            host_platform = host_platform,
+            lean_version = version,
+            mathlib_rev = mathlib_rev,
+        )
 
 lean = module_extension(
     implementation = _lean_impl,

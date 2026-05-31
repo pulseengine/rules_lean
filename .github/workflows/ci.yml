@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    # Nightly cold-cache build of the ℝ proof guards against the Mathlib-fetch
+    # bugs (full clone / version skew) regressing behind a warm cache.
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
 
 jobs:
   verify-rules:
@@ -87,6 +92,20 @@ jobs:
           # This should succeed — extension allows empty hashes in dev mode
           bazel query '@lean_toolchains//:all' 2>&1
           echo "PASS: dev mode opt-out accepted"
+      - name: Verify Lean/Mathlib version skew fails with an actionable message
+        run: |
+          cd tests/version_skew
+          # Must fail at resolution with the actionable skew message, NOT the
+          # cryptic "no Elan detected" that lake emits on a toolchain mismatch.
+          if bazel query '@mathlib//:Mathlib' 2>err.log; then
+            echo "ERROR: version skew should have failed"; cat err.log; exit 1
+          fi
+          grep -q "requires Lean" err.log
+          grep -q "align lean.toolchain" err.log
+          if grep -qi "no Elan" err.log; then
+            echo "ERROR: hit the cryptic Elan path instead of the actionable error"; exit 1
+          fi
+          echo "PASS: version skew rejected with actionable message"
 
   test-platform-downloads:
     name: Verify all platform downloads (CC-005)
@@ -120,3 +139,28 @@ jobs:
       - name: Test mathlib proofs
         run: bazel test //examples/mathlib_proof:nat_proofs_test
         timeout-minutes: 10
+      - name: Build ℝ proofs (ordered-field / Real path)
+        run: bazel build //examples/real_proof:real_proofs
+        timeout-minutes: 30
+      - name: Test ℝ proofs (ring / linarith / sq_nonneg / mul_nonneg)
+        run: bazel test //examples/real_proof:real_proofs_test --test_output=errors
+        timeout-minutes: 10
+
+  nightly-real-cold-cache:
+    name: Nightly cold-cache ℝ proof
+    # Schedule/dispatch only: a cold-cache run forces @mathlib re-fetch +
+    # re-consolidation so the shallow-fetch and skew fixes cannot regress
+    # silently behind the warm PR cache. No actions/cache here on purpose.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazelbuild/setup-bazelisk@v3
+      - name: Cold cache (force Mathlib re-fetch + olean re-consolidation)
+        run: bazel clean --expunge
+      - name: Build ℝ proof from a clean cache
+        run: bazel build //examples/real_proof:real_proofs
+        timeout-minutes: 90
+      - name: Test ℝ proof from a clean cache
+        run: bazel test //examples/real_proof:real_proofs_test --test_output=errors
+        timeout-minutes: 20
