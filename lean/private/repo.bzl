@@ -158,11 +158,14 @@ def _mathlib_repo_impl(rctx):
         "HOME": str(rctx.path(".")),
     }
 
-    # Fetch mathlib dependency tree
+    # Fetch mathlib dependency tree. `lake update` clones mathlib4 (a large
+    # repo with full git history) — 600 s is too short on a cold cache /
+    # slower network and the clone gets killed mid-fetch ("Socket closed").
+    # 3600 s gives the clone room to finish.
     result = rctx.execute(
         [str(lake), "update"],
         environment = env,
-        timeout = 600,
+        timeout = 3600,
         quiet = False,
     )
     if result.return_code != 0:
