@@ -151,7 +151,15 @@ def _aeneas_lean_lib_impl(rctx):
         "HOME": str(rctx.path(".")),
     }
 
-    # Download the aeneas lean library source
+    # Download the aeneas lean library source.
+    # Reproducibility: an unpinned tarball can change if the tag/rev is moved.
+    # Warn loudly when no hash is given (the extension does not yet plumb one —
+    # tracked in #7); a consumer can pin it once the digest is known.
+    if not rctx.attr.sha256:
+        # buildifier: disable=print
+        print("WARNING: Aeneas Lean library source (rev '{}') is fetched WITHOUT a sha256 — not hermetic. Provide sha256 to pin it.".format(
+            rctx.attr.aeneas_rev,
+        ))
     rctx.download_and_extract(
         url = "https://github.com/AeneasVerif/aeneas/archive/{rev}.tar.gz".format(
             rev = rctx.attr.aeneas_rev,
@@ -163,22 +171,35 @@ def _aeneas_lean_lib_impl(rctx):
     # Set up the lean library project
     rctx.file("lean-toolchain", "leanprover/lean4:v" + rctx.attr.lean_version + "\n")
 
-    # Build the lean library using lake from backends/lean/
+    # Build the lean library using lake from backends/lean/.
+    # NOTE: `lake update` re-resolves Aeneas's dependency tree from git, which
+    # full-history-clones mathlib4 (~2 GB) — the same unpinned full-clone fixed
+    # for @mathlib (lean/private/repo.bzl). 600 s is too short on a cold cache;
+    # 3600 s is defense-in-depth. The complete fix (shallow local-path mathlib +
+    # respecting Aeneas's pinned lake-manifest) is tracked in #7.
     result = rctx.execute(
         [str(lake), "update"],
         environment = env,
-        timeout = 600,
+        timeout = 3600,
         quiet = False,
         working_directory = "backends/lean",
     )
+    if result.return_code != 0:
+        fail("lake update for the Aeneas Lean library failed:\n" + result.stderr)
 
+    # Pre-built olean cache (fast path). Non-fatal — `lake build` below rebuilds
+    # from source if it is unavailable — but a silently-ignored failure used to
+    # mask real problems, so warn loudly.
     result = rctx.execute(
         [str(lake), "exe", "cache", "get"],
         environment = env,
-        timeout = 600,
+        timeout = 1200,
         quiet = False,
         working_directory = "backends/lean",
     )
+    if result.return_code != 0:
+        # buildifier: disable=print
+        print("WARNING: `lake exe cache get` failed for the Aeneas Lean library; building from source (slower):\n" + result.stderr)
 
     result = rctx.execute(
         [str(lake), "build", "Aeneas"],
@@ -190,21 +211,29 @@ def _aeneas_lean_lib_impl(rctx):
     if result.return_code != 0:
         fail("Failed to build Aeneas Lean library:\n" + result.stderr)
 
-    # Consolidate oleans into lib/
-    rctx.execute(["mkdir", "-p", "lib"])
-    rctx.execute(["sh", "-c", """
+    # Consolidate oleans into lib/. Errors are not swallowed: `set -e` plus a
+    # checked return code attribute a failed copy to this step rather than to a
+    # downstream "missing olean". `cp -R "$dir"/.` is portable and copies dir
+    # contents without a glob that fails when empty.
+    mk = rctx.execute(["mkdir", "-p", "lib"])
+    if mk.return_code != 0:
+        fail("mkdir lib failed:\n" + mk.stderr)
+    consolidate = rctx.execute(["sh", "-c", """
+        set -e
         for pkg_dir in backends/lean/.lake/packages/*/; do
             for lib_dir in "${pkg_dir}.lake/build/lib" "${pkg_dir}build/lib"; do
-                if [ -d "$lib_dir" ]; then
-                    cp -r "$lib_dir"/* lib/ 2>/dev/null || true
+                if [ -d "$lib_dir" ] && ls "$lib_dir"/ >/dev/null 2>&1; then
+                    cp -R "$lib_dir"/. lib/
                 fi
             done
         done
         # Also copy the Aeneas library itself
         if [ -d "backends/lean/.lake/build/lib" ]; then
-            cp -r backends/lean/.lake/build/lib/* lib/ 2>/dev/null || true
+            cp -R backends/lean/.lake/build/lib/. lib/
         fi
     """])
+    if consolidate.return_code != 0:
+        fail("Aeneas olean consolidation copy failed:\n" + consolidate.stdout + "\n" + consolidate.stderr)
 
     rctx.file("lib/.marker", "")
     rctx.file("BUILD.bazel", _LEAN_LIB_BUILD_FILE)
