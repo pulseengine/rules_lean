@@ -216,3 +216,22 @@ jobs:
         working-directory: tests/charon_llbc
         run: bazel build //:hello_lean_check
         timeout-minutes: 20
+
+  build-aeneas-lean-lib:
+    name: Aeneas Lean lib build (#7 shallow-fetch)
+    runs-on: [self-hosted, linux, x64, rust-cpu]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazelbuild/setup-bazelisk@v3
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/bazel
+          key: bazel-aeneaslib-${{ runner.os }}-${{ hashFiles('tests/charon_llbc/MODULE.bazel') }}
+          restore-keys: bazel-aeneaslib-${{ runner.os }}-
+      # Forces @aeneas_lean_lib to fetch + build, exercising the #7 deep fix:
+      # shallow-fetch mathlib (v4.28.0-rc1) + local-path redirect instead of a
+      # full clone. Heavy — builds the Aeneas Lean support library on mathlib.
+      - name: Build @aeneas_lean_lib (Aeneas Lean support library)
+        working-directory: tests/charon_llbc
+        run: bazel build @aeneas_lean_lib//:Aeneas
+        timeout-minutes: 60
