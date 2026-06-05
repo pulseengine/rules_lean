@@ -32,7 +32,7 @@ load("@rules_lean//aeneas:toolchain.bzl", "aeneas_toolchain_info")
 
 package(default_visibility = ["//visibility:public"])
 
-filegroup(name = "aeneas_bin", srcs = ["bin/aeneas"])
+filegroup(name = "aeneas_bin", srcs = ["aeneas"])
 filegroup(name = "all_files", srcs = glob(["**"]))
 
 aeneas_toolchain_info(
@@ -60,8 +60,9 @@ def _aeneas_release_impl(rctx):
         sha256 = rctx.attr.sha256 if rctx.attr.sha256 else "",
     )
 
-    # Make binary executable
-    rctx.execute(["chmod", "+x", "bin/aeneas"])
+    # Make binary executable (the aeneas tarball ships `aeneas` at the root,
+    # with backends/ as a sibling — not under bin/).
+    rctx.execute(["chmod", "+x", "aeneas"])
 
     # Remove macOS quarantine
     if "macos" in platform:
