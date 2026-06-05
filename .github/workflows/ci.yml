@@ -36,7 +36,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os:
+          - [self-hosted, linux, x64, rust-cpu]
+          - macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: bazelbuild/setup-bazelisk@v3
@@ -73,7 +75,7 @@ jobs:
 
   test-hash-enforcement:
     name: Test SHA-256 enforcement
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, light]
     steps:
       - uses: actions/checkout@v4
       - uses: bazelbuild/setup-bazelisk@v3
@@ -111,7 +113,7 @@ jobs:
 
   test-platform-downloads:
     name: Verify all platform downloads (CC-005)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, light]
     steps:
       - uses: actions/checkout@v4
       - uses: bazelbuild/setup-bazelisk@v3
@@ -126,7 +128,7 @@ jobs:
 
   build-mathlib:
     name: Build mathlib proofs (Linux)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, rust-cpu]
     steps:
       - uses: actions/checkout@v4
       - uses: bazelbuild/setup-bazelisk@v3
@@ -154,7 +156,7 @@ jobs:
     # re-consolidation so the shallow-fetch and skew fixes cannot regress
     # silently behind the warm PR cache. No actions/cache here on purpose.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, rust-cpu]
     steps:
       - uses: actions/checkout@v4
       - uses: bazelbuild/setup-bazelisk@v3
@@ -169,7 +171,7 @@ jobs:
 
   build-charon:
     name: Charon toolchain smoke (Linux)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, rust-cpu]
     steps:
       - uses: actions/checkout@v4
       - uses: bazelbuild/setup-bazelisk@v3
@@ -179,7 +181,7 @@ jobs:
           key: bazel-charon-${{ runner.os }}-${{ hashFiles('tests/charon_smoke/MODULE.bazel') }}
           restore-keys: bazel-charon-${{ runner.os }}-
       # tests/charon_smoke is its own bzlmod module that wires the Charon
-      # toolchain (the root module does not). On ubuntu-latest the host is
+      # toolchain (the root module does not). The self-hosted x64 runner is
       # linux_x86_64 — a real prebuilt, not the linux_aarch64 fail-fast stub.
       - name: Build charon version check (downloads pinned charon, asserts version)
         working-directory: tests/charon_smoke
@@ -192,7 +194,7 @@ jobs:
 
   build-charon-llbc:
     name: Charon LLBC translation (Linux)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, rust-cpu]
     steps:
       - uses: actions/checkout@v4
       - uses: bazelbuild/setup-bazelisk@v3
