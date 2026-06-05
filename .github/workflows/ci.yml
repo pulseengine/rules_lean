@@ -208,3 +208,9 @@ jobs:
         working-directory: tests/charon_llbc
         run: bazel build //:hello_llbc_check
         timeout-minutes: 20
+      # Level-1 aeneas pipeline: LLBC -> Lean via the aeneas binary (dev-mode
+      # pin, no compile — does not build @aeneas_lean_lib).
+      - name: Build aeneas_translate check (LLBC -> Lean)
+        working-directory: tests/charon_llbc
+        run: bazel build //:hello_lean_check
+        timeout-minutes: 20
