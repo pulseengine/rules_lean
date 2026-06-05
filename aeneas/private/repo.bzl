@@ -1,5 +1,11 @@
 "Repository rules for downloading Aeneas and its Lean support library."
 
+load(
+    "//lean/private:mathlib_fetch.bzl",
+    "rewrite_git_require_to_local",
+    "shallow_fetch_mathlib",
+)
+
 ALL_AENEAS_PLATFORMS = [
     "macos_aarch64",
     "macos_x86_64",
@@ -171,12 +177,17 @@ def _aeneas_lean_lib_impl(rctx):
     # Set up the lean library project
     rctx.file("lean-toolchain", "leanprover/lean4:v" + rctx.attr.lean_version + "\n")
 
-    # Build the lean library using lake from backends/lean/.
-    # NOTE: `lake update` re-resolves Aeneas's dependency tree from git, which
-    # full-history-clones mathlib4 (~2 GB) — the same unpinned full-clone fixed
-    # for @mathlib (lean/private/repo.bzl). 600 s is too short on a cold cache;
-    # 3600 s is defense-in-depth. The complete fix (shallow local-path mathlib +
-    # respecting Aeneas's pinned lake-manifest) is tracked in #7.
+    # #7 deep fix: Aeneas's backends/lean/lakefile.lean does
+    # `require mathlib from git ... @ "v<lean>"`, which makes `lake update`
+    # full-history-clone mathlib4 (~2 GB). Shallow-fetch that exact rev (shared
+    # helper, same as @mathlib) and redirect the require at the local checkout,
+    # so `lake update` only resolves mathlib's small transitive deps. Aeneas
+    # pins mathlib at the matching "v"+lean_version tag.
+    mathlib_src = shallow_fetch_mathlib(rctx, "v" + rctx.attr.lean_version)
+    rewrite_git_require_to_local(rctx, "backends/lean/lakefile.lean", "mathlib", mathlib_src)
+
+    # Resolve the (now small) remaining transitive deps. The 3600 s ceiling is
+    # defense-in-depth; with mathlib local this is no longer the slow step.
     result = rctx.execute(
         [str(lake), "update"],
         environment = env,

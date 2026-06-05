@@ -1,5 +1,7 @@
 "Repository rules for downloading Lean 4 toolchain and Mathlib."
 
+load("//lean/private:mathlib_fetch.bzl", "shallow_fetch_mathlib")
+
 ALL_PLATFORMS = [
     "darwin_aarch64",
     "darwin_x86_64",
@@ -119,8 +121,6 @@ lean_prebuilt_library(
 )
 """
 
-_MATHLIB_GIT_URL = "https://github.com/leanprover-community/mathlib4.git"
-
 # Mathlib is consumed from a LOCAL checkout (see `_mathlib_repo_impl`), not via
 # `require ... from git`. Lake's git resolver does a full-history clone (~2 GB)
 # with no `--depth` knob, which times out on a cold cache; pointing the require
@@ -163,44 +163,9 @@ def _mathlib_repo_impl(rctx):
         "HOME": str(rctx.path(".")),
     }
 
-    # ── Shallow pre-clone of mathlib4 at the pinned rev ──────────────────────
-    # Fetch ONLY the pinned tag/commit with depth 1 (seconds, not minutes)
-    # instead of letting `lake update` full-history-clone the ~2 GB monorepo.
-    # The `git init` + `fetch <rev>` + `checkout FETCH_HEAD` form accepts both
-    # tags and bare SHAs (unlike `git clone --branch`, which rejects SHAs).
-    rev = rctx.attr.mathlib_rev
-    src = rctx.path("mathlib4_src")
-    init = rctx.execute(["git", "init", "-q", str(src)])
-    if init.return_code != 0:
-        fail("git init for mathlib4 checkout failed:\n" + init.stderr)
-
-    # An `origin` remote pointing at the GitHub repo is REQUIRED: Mathlib's
-    # `lake exe cache get` runs `git remote get-url origin` to derive which
-    # repository's olean cache bucket to download from. Without it, cache get
-    # aborts ("No such remote 'origin'") and falls back to a multi-hour build.
-    remote = rctx.execute(["git", "-C", str(src), "remote", "add", "origin", _MATHLIB_GIT_URL])
-    if remote.return_code != 0:
-        fail("git remote add origin for mathlib4 failed:\n" + remote.stderr)
-    fetch = rctx.execute(
-        ["git", "-C", str(src), "fetch", "--depth", "1", "--no-tags", "origin", rev],
-        # Defense-in-depth: a single shallow tree is fast, but keep a generous
-        # ceiling for slow networks / large single trees.
-        timeout = 3600,
-        quiet = False,
-    )
-    if fetch.return_code != 0:
-        fail("shallow `git fetch` of mathlib4 @ '{}' failed:\n{}".format(rev, fetch.stderr))
-    checkout = rctx.execute(["git", "-C", str(src), "checkout", "-q", "FETCH_HEAD"])
-    if checkout.return_code != 0:
-        fail("`git checkout FETCH_HEAD` for mathlib4 @ '{}' failed:\n{}".format(rev, checkout.stderr))
-
-    # Sanity-check the checkout looks like mathlib before lake touches it, so a
-    # bad/force-moved rev fails here with a clear message rather than deep inside
-    # `lake update`. mathlib4 ships a lakefile.lean (older) or lakefile.toml.
-    has_lakefile = rctx.path(str(src) + "/lakefile.lean").exists or \
-                   rctx.path(str(src) + "/lakefile.toml").exists
-    if not has_lakefile:
-        fail("mathlib4 @ '{}' has no lakefile.lean/.toml after checkout — bad rev?".format(rev))
+    # Shallow pre-clone of mathlib4 at the pinned rev (shared helper), instead
+    # of letting `lake update` full-history-clone the ~2 GB monorepo.
+    src = shallow_fetch_mathlib(rctx, rctx.attr.mathlib_rev)
 
     # Point lake at the LOCAL checkout (absolute path). `lake update` now only
     # resolves mathlib's small transitive deps (Batteries, Aesop, ...) from
