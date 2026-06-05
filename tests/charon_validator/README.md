@@ -5,7 +5,7 @@ Compares two Charon-integration strategies head-to-head.
 ## Gates (all must pass)
 
 - **build** — `bazel build //:charon_bin` (run inside `tests/charon_smoke`, the module that wires the Charon toolchain) succeeds.
-- **smoke** — the built binary emits the expected version string (`0.1.181` by default).
+- **smoke** — the built binary emits the expected version string (default read from `tests/charon_smoke/BUILD.bazel`'s `CHARON_EXPECTED_VERSION`; override via the `CHARON_EXPECTED_VERSION` env var).
 - **hermetic** — the build log contains ≤2 references to ambient host tools (`rustup`, `~/.cargo/`, `/nix/store/`, `/Users/*/`, `/home/*/`). Nix-based tracks will always show some `/nix/store/` refs; two is the budget before we call the track leaky.
 - **reproducible** — two cold builds (`bazel clean --expunge` between them) produce identical `charon` binary SHA-256.
 

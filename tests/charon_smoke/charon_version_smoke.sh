@@ -5,7 +5,9 @@
 #   * `charon version` must print the expected version.
 #   * No rustup invocation. No $HOME/.cargo reads. No network access.
 #
-# We pass the resolved rootpath of the charon binary as argv[1].
+# We pass the resolved rootpath of the charon binary as argv[1], and the
+# expected version string as argv[2] (single-sourced from BUILD.bazel's
+# CHARON_EXPECTED_VERSION).
 
 set -euo pipefail
 
@@ -29,12 +31,15 @@ export HOME="$(mktemp -d)"
 unset RUSTUP_HOME CARGO_HOME RUSTUP_TOOLCHAIN CHARON_TOOLCHAIN_DIR || true
 trap 'rm -rf "$HOME"' EXIT
 
-EXPECTED="0.1.181"
+EXPECTED="${2:-0.1.181}"
 
 # Capture both stdout and stderr. `charon version` should print the version on
-# stdout and exit 0 without trying to invoke rustup.
+# stdout and exit 0 without trying to invoke rustup. Disable `set -e` around the
+# capture so a non-zero exit reaches the RC check below instead of aborting here.
+set +e
 OUTPUT="$("$CHARON" version 2>&1)"
 RC=$?
+set -e
 
 echo "--- charon version output ---"
 echo "$OUTPUT"

@@ -3,7 +3,8 @@
 #
 # Gates (pass/fail):
 #   - build:        bazel build //:charon_bin (in tests/charon_smoke) succeeds
-#   - smoke:        `charon version` emits the expected string (0.1.181)
+#   - smoke:        `charon version` emits the expected string
+#                   (CHARON_EXPECTED_VERSION; default from charon_smoke/BUILD.bazel)
 #   - hermetic:     no ambient-tool references (rustup, ~/.cargo, /nix/store)
 #                   appear in the build log after initial download
 #   - reproducible: two cold builds produce identical charon binary hashes
@@ -27,7 +28,13 @@ set -uo pipefail
 TRACK_A_DIR="${1:-}"
 TRACK_B_DIR="${2:-}"
 REPORT_PATH="${3:-/tmp/charon-validator-report.md}"
-EXPECTED_VERSION="${CHARON_EXPECTED_VERSION:-0.1.181}"
+# Default the expected version from the canonical single source
+# (tests/charon_smoke/BUILD.bazel : CHARON_EXPECTED_VERSION); env still overrides.
+EXPECTED_VERSION="${CHARON_EXPECTED_VERSION:-$(
+    grep -oE 'CHARON_EXPECTED_VERSION = "[^"]+"' \
+        "$(dirname "$0")/../charon_smoke/BUILD.bazel" 2>/dev/null |
+        grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo 0.1.181
+)}"
 
 if [ -z "$TRACK_A_DIR" ] || [ -z "$TRACK_B_DIR" ]; then
     echo "usage: $0 <track-a-worktree> <track-b-worktree> [report-path]" >&2
