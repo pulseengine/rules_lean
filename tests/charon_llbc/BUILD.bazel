@@ -1,0 +1,57 @@
+load("@rules_lean//aeneas:defs.bzl", "aeneas_translate", "charon_llbc")
+
+# Translate the tiny Rust crate to LLBC via Charon.
+charon_llbc(
+    name = "hello_llbc",
+    srcs = ["src/lib.rs"],
+    crate_name = "hello",
+    crate_root = "src/lib.rs",
+)
+
+# Build-time assertion: the .llbc output exists and is non-empty. Usable in
+# environments where `bazel test` isn't permitted (see tests/charon_smoke
+# for the same pattern).
+genrule(
+    name = "hello_llbc_check",
+    srcs = [":hello_llbc"],
+    outs = ["hello_llbc_check.stamp"],
+    cmd = """
+set -euo pipefail
+LLBC=$(SRCS)
+if [ ! -s "$$LLBC" ]; then
+    echo "ERROR: expected non-empty llbc at $$LLBC" >&2
+    exit 1
+fi
+SIZE=$$(wc -c < "$$LLBC")
+echo "charon_llbc produced $$LLBC ($$SIZE bytes)"
+echo "OK $$SIZE" > $@
+""",
+    testonly = True,
+)
+
+# Level-1 end-to-end: translate the LLBC to Lean 4 via the Aeneas binary.
+# Exercises aeneas_translate (LLBC -> .lean) WITHOUT compiling the result, so it
+# does not trigger the heavy @aeneas_lean_lib build.
+aeneas_translate(
+    name = "hello_lean",
+    srcs = [":hello_llbc"],
+)
+
+# Build-time assertion: Aeneas emitted at least one .lean file.
+genrule(
+    name = "hello_lean_check",
+    srcs = [":hello_lean"],
+    outs = ["hello_lean_check.stamp"],
+    cmd = """
+set -euo pipefail
+OUT_DIR=$(SRCS)
+LEAN_COUNT=$$(find "$$OUT_DIR" -name '*.lean' | wc -l | tr -d ' ')
+echo "aeneas_translate produced $$LEAN_COUNT .lean file(s) under $$OUT_DIR"
+if [ "$$LEAN_COUNT" -lt 1 ]; then
+    echo "ERROR: aeneas_translate produced no .lean files" >&2
+    exit 1
+fi
+echo "OK $$LEAN_COUNT" > $@
+""",
+    testonly = True,
+)

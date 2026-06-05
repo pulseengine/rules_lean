@@ -151,3 +151,43 @@ artifacts:
         target: REQ-006
       - type: satisfies
         target: REQ-008
+
+  - id: DD-007
+    type: design-decision
+    title: Charon toolchain via prebuilt downloads + Rust sysroot (pure Bazel)
+    status: accepted
+    description: >
+      Download Charon's prebuilt release binaries from GitHub plus the
+      matching Rust nightly sysroot (rustc, rust-std, rustc-dev, rust-src)
+      from static.rust-lang.org. All artifacts are SHA-256 pinned. Charon's
+      CHARON_TOOLCHAIN_IS_IN_PATH=1 env var is used to make it read the
+      sysroot from PATH instead of invoking rustup. linux_aarch64 has a
+      fail-fast stub (no upstream Charon prebuilt is published for that
+      platform).
+    fields:
+      rationale: >
+        Pure-Bazel keeps the hermeticity contract identical to Lean and
+        Mathlib toolchain handling: SHA-256 enforcement, no ambient host
+        tools, no out-of-band daemon. Reuses the rules_verus sysroot
+        pattern so the maintenance story is shared across the pulseengine
+        ruleset family.
+      alternatives: >
+        Alternative: Invoke `nix build github:AeneasVerif/charon?rev=<sha>`
+        from a repo rule and stage the closure. Evaluated head-to-head in
+        a parallel track (worktree removed after decision). Rejected for
+        three reasons: (1) adds a hard Nix-on-host requirement for every
+        developer and CI runner, violating the pure-Bazel hermeticity goal
+        stated for rules_lean; (2) the track's own validator build failed
+        on a Nix-equipped host because the smoke test MODULE.bazel omitted
+        required bazel_deps — a symptom of the agent being unable to
+        self-test without Nix on PATH, which is itself a point against
+        the approach; (3) Nix would have gained us linux_aarch64 support
+        (Charon has no prebuilt there) but Track A handles that with a
+        fail-fast stub that matches the Aeneas release's own platform
+        coverage. Kept on paper as a potential fallback if Charon stops
+        publishing prebuilts.
+    links:
+      - type: satisfies
+        target: REQ-001
+      - type: satisfies
+        target: REQ-003

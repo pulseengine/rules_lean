@@ -34,7 +34,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os:
+          - [self-hosted, linux, x64, rust-cpu]
+          - macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: bazelbuild/setup-bazelisk@v3
@@ -71,7 +73,7 @@ jobs:
 
   test-hash-enforcement:
     name: Test SHA-256 enforcement
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, light]
     steps:
       - uses: actions/checkout@v4
       - uses: bazelbuild/setup-bazelisk@v3
@@ -109,7 +111,7 @@ jobs:
 
   test-platform-downloads:
     name: Verify all platform downloads (CC-005)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, light]
     steps:
       - uses: actions/checkout@v4
       - uses: bazelbuild/setup-bazelisk@v3
@@ -124,7 +126,7 @@ jobs:
 
   build-mathlib:
     name: Build mathlib proofs (Linux)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, rust-cpu]
     steps:
       - uses: actions/checkout@v4
       - uses: bazelbuild/setup-bazelisk@v3
@@ -152,7 +154,7 @@ jobs:
     # re-consolidation so the shallow-fetch and skew fixes cannot regress
     # silently behind the warm PR cache. No actions/cache here on purpose.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, rust-cpu]
     steps:
       - uses: actions/checkout@v4
       - uses: bazelbuild/setup-bazelisk@v3
@@ -164,3 +166,70 @@ jobs:
       - name: Test ℝ proof from a clean cache
         run: bazel test //examples/real_proof:real_proofs_test --test_output=errors
         timeout-minutes: 20
+
+  build-charon:
+    name: Charon toolchain smoke (Linux)
+    runs-on: [self-hosted, linux, x64, rust-cpu]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazelbuild/setup-bazelisk@v3
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/bazel
+          key: bazel-charon-${{ runner.os }}-${{ hashFiles('tests/charon_smoke/MODULE.bazel') }}
+          restore-keys: bazel-charon-${{ runner.os }}-
+      # tests/charon_smoke is its own bzlmod module that wires the Charon
+      # toolchain (the root module does not). The self-hosted x64 runner is
+      # linux_x86_64 — a real prebuilt, not the linux_aarch64 fail-fast stub.
+      - name: Build charon version check (downloads pinned charon, asserts version)
+        working-directory: tests/charon_smoke
+        run: bazel build //:charon_version_check
+        timeout-minutes: 20
+      - name: Run charon version smoke test
+        working-directory: tests/charon_smoke
+        run: bazel test //:charon_version_smoke --test_output=errors
+        timeout-minutes: 10
+
+  build-charon-llbc:
+    name: Charon LLBC translation (Linux)
+    runs-on: [self-hosted, linux, x64, rust-cpu]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazelbuild/setup-bazelisk@v3
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/bazel
+          key: bazel-charonllbc-${{ runner.os }}-${{ hashFiles('tests/charon_llbc/MODULE.bazel') }}
+          restore-keys: bazel-charonllbc-${{ runner.os }}-
+      # Exercises the charon_llbc rule end-to-end: Rust source -> .llbc via
+      # `charon rustc` (using the bundled Rust sysroot), asserting non-empty
+      # output. This is the FEAT-006 charon_llbc validation path.
+      - name: Build charon_llbc check (Rust -> LLBC)
+        working-directory: tests/charon_llbc
+        run: bazel build //:hello_llbc_check
+        timeout-minutes: 20
+      # Level-1 aeneas pipeline: LLBC -> Lean via the aeneas binary (dev-mode
+      # pin, no compile — does not build @aeneas_lean_lib).
+      - name: Build aeneas_translate check (LLBC -> Lean)
+        working-directory: tests/charon_llbc
+        run: bazel build //:hello_lean_check
+        timeout-minutes: 20
+
+  build-aeneas-lean-lib:
+    name: Aeneas Lean lib build (#7 shallow-fetch)
+    runs-on: [self-hosted, linux, x64, rust-cpu]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazelbuild/setup-bazelisk@v3
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/bazel
+          key: bazel-aeneaslib-${{ runner.os }}-${{ hashFiles('tests/charon_llbc/MODULE.bazel') }}
+          restore-keys: bazel-aeneaslib-${{ runner.os }}-
+      # Forces @aeneas_lean_lib to fetch + build, exercising the #7 deep fix:
+      # shallow-fetch mathlib (v4.28.0-rc1) + local-path redirect instead of a
+      # full clone. Heavy — builds the Aeneas Lean support library on mathlib.
+      - name: Build @aeneas_lean_lib (Aeneas Lean support library)
+        working-directory: tests/charon_llbc
+        run: bazel build @aeneas_lean_lib//:Aeneas
+        timeout-minutes: 60

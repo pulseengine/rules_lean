@@ -1,0 +1,27 @@
+module(name = "test_charon_smoke", version = "0.0.0")
+
+bazel_dep(name = "rules_lean", version = "0.1.0")
+local_path_override(
+    module_name = "rules_lean",
+    path = "../..",
+)
+
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "platforms", version = "0.0.11")
+bazel_dep(name = "rules_shell", version = "0.3.0")
+
+aeneas = use_extension("@rules_lean//aeneas:extensions.bzl", "aeneas")
+aeneas.charon_toolchain(
+    version = "build-2026.04.22.081730-2d35584fb79ef804c50f106d8c40bd3728284f8d",
+)
+
+use_repo(
+    aeneas,
+    "charon_toolchains",
+    "charon_macos_aarch64",
+    "charon_macos_x86_64",
+    "charon_linux_x86_64",
+    "charon_linux_aarch64",
+)
+
+register_toolchains("@charon_toolchains//:all")
