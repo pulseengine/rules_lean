@@ -1,0 +1,18 @@
+module(name = "test_version_skew", version = "0.0.0")
+
+bazel_dep(name = "rules_lean", version = "0.1.0")
+local_path_override(
+    module_name = "rules_lean",
+    path = "../..",
+)
+
+lean = use_extension("@rules_lean//lean:extensions.bzl", "lean")
+
+# Deliberate skew: toolchain 4.27.0 but Mathlib pinned at v4.29.1.
+# The extension must fail() at resolution with an actionable message — NOT let
+# lake hit the cryptic "no Elan detected" path during the fetch.
+lean.toolchain(version = "4.27.0")
+lean.mathlib(rev = "v4.29.1")
+
+use_repo(lean, "lean_toolchains", "mathlib")
+register_toolchains("@lean_toolchains//:all")

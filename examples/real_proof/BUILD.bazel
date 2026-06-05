@@ -1,0 +1,16 @@
+load("//lean:defs.bzl", "lean_library", "lean_proof_test")
+
+# ℝ / ordered-field proof. Forces import resolution and elaboration of the
+# Mathlib.Data.Real and Mathlib.Algebra.Order oleans that the Nat-only example
+# never touches — the regression guard for the Mathlib-fetch fixes.
+lean_library(
+    name = "real_proofs",
+    srcs = ["RealProofs.lean"],
+    deps = ["@mathlib//:Mathlib"],
+)
+
+lean_proof_test(
+    name = "real_proofs_test",
+    srcs = ["RealProofs.lean"],
+    deps = ["@mathlib//:Mathlib"],
+)

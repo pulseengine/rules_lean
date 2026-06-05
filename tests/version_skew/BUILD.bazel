@@ -1,0 +1,2 @@
+# Empty — querying @mathlib//:Mathlib triggers the extension, which must fail()
+# at resolution time with the actionable skew message (before any fetch).
