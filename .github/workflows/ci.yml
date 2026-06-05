@@ -2,9 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # feature/charon-stage-2 is included so the Charon smoke job (build-charon)
+    # runs on this branch before it lands on main; remove once merged.
+    branches: [main, feature/charon-stage-2]
   pull_request:
     branches: [main]
+  workflow_dispatch: {}
 
 jobs:
   verify-rules:
