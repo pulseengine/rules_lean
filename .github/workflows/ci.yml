@@ -120,3 +120,26 @@ jobs:
       - name: Test mathlib proofs
         run: bazel test //examples/mathlib_proof:nat_proofs_test
         timeout-minutes: 10
+
+  build-charon:
+    name: Charon toolchain smoke (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazelbuild/setup-bazelisk@v3
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/bazel
+          key: bazel-charon-${{ runner.os }}-${{ hashFiles('tests/charon_smoke/MODULE.bazel') }}
+          restore-keys: bazel-charon-${{ runner.os }}-
+      # tests/charon_smoke is its own bzlmod module that wires the Charon
+      # toolchain (the root module does not). On ubuntu-latest the host is
+      # linux_x86_64 — a real prebuilt, not the linux_aarch64 fail-fast stub.
+      - name: Build charon version check (downloads pinned charon, asserts version)
+        working-directory: tests/charon_smoke
+        run: bazel build //:charon_version_check
+        timeout-minutes: 20
+      - name: Run charon version smoke test
+        working-directory: tests/charon_smoke
+        run: bazel test //:charon_version_smoke --test_output=errors
+        timeout-minutes: 10
