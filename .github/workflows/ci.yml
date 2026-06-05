@@ -146,3 +146,22 @@ jobs:
         working-directory: tests/charon_smoke
         run: bazel test //:charon_version_smoke --test_output=errors
         timeout-minutes: 10
+
+  build-charon-llbc:
+    name: Charon LLBC translation (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazelbuild/setup-bazelisk@v3
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/bazel
+          key: bazel-charonllbc-${{ runner.os }}-${{ hashFiles('tests/charon_llbc/MODULE.bazel') }}
+          restore-keys: bazel-charonllbc-${{ runner.os }}-
+      # Exercises the charon_llbc rule end-to-end: Rust source -> .llbc via
+      # `charon rustc` (using the bundled Rust sysroot), asserting non-empty
+      # output. This is the FEAT-006 charon_llbc validation path.
+      - name: Build charon_llbc check (Rust -> LLBC)
+        working-directory: tests/charon_llbc
+        run: bazel build //:hello_llbc_check
+        timeout-minutes: 20
