@@ -2,9 +2,7 @@ name: CI
 
 on:
   push:
-    # feature/charon-stage-2 included so the Charon smoke jobs run on this
-    # branch before it lands on main; remove once merged.
-    branches: [main, feature/charon-stage-2]
+    branches: [main]
   pull_request:
     branches: [main]
   schedule:
