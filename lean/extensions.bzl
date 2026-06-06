@@ -19,6 +19,15 @@ _KNOWN_VERSIONS = {
             "linux_aarch64": "1ccdfb7f924901f4b73a4b4eb169e5b3dc74f6836521b47e733ea25f2abfc0dc",
         },
     },
+    # RC pinned for the Aeneas pipeline (aeneas's backends/lean tracks it).
+    "4.28.0-rc1": {
+        "sha256": {
+            "darwin_aarch64": "0113153c14ac6952c2b672cc22dc8a18cbc503a3a59a7f4f88250aa6ae7fac29",
+            "darwin_x86_64": "759b5df12fcec42765aad1eb89782e0bb05baaf6ac6cfae125d667e4f1ab97e9",
+            "linux_x86_64": "a3b013a20233f51852ebeb5e54967298a37aff055546170a40f1e79234bb9f4d",
+            "linux_aarch64": "edada5b461cdc85f3ed3a5f0a6191c48c7ad0c0199d36960618e55bab44c7a49",
+        },
+    },
 }
 
 def _detect_host_platform(module_ctx):
