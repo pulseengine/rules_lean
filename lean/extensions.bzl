@@ -50,21 +50,24 @@ _LeanMathlibTag = tag_class(attrs = {
     ),
 })
 
-# Mathlib release tags follow the "v{lean_version}" convention.
+# Mathlib release tags track the Lean version EXACTLY, including pre-release
+# suffixes: Lean 4.28.0-rc1 pairs with Mathlib v4.28.0-rc1 (rc-for-rc), and
+# stable Lean 4.29.1 with Mathlib v4.29.1. So we strip only the leading "v" and
+# compare the rest verbatim — NOT dropping "-rcN", which would falsely flag an
+# RC toolchain (4.28.0-rc1) against its matching RC mathlib (v4.28.0-rc1).
 def _required_lean_from_rev(rev):
     """Derive the Lean version a Mathlib rev requires.
 
     Returns (lean_version | None, is_sha):
       - "v4.29.1"      -> ("4.29.1", False)
-      - "v4.29.1-rc1"  -> ("4.29.1", False)   # pre-release suffix dropped
-      - 40-char hex    -> (None, True)        # bare SHA: version not inferable
+      - "v4.28.0-rc1"  -> ("4.28.0-rc1", False)   # rc preserved (rc-for-rc)
+      - 40-char hex    -> (None, True)            # bare SHA: version not inferable
     """
     lowered = rev.lower()
     is_sha = len(rev) == 40 and all([c in "0123456789abcdef" for c in lowered.elems()])
     if is_sha:
         return None, True
-    base = rev[1:] if rev.startswith("v") else rev
-    return base.split("-")[0], False
+    return (rev[1:] if rev.startswith("v") else rev), False
 
 def _lean_impl(module_ctx):
     # ── Toolchain ────────────────────────────────────────────────────────
