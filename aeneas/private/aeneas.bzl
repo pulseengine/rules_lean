@@ -13,7 +13,14 @@ AeneasInfo = provider(
 def _aeneas_translate_impl(ctx):
     toolchain = ctx.toolchains["//aeneas:toolchain_type"].aeneas_toolchain_info
 
+    # Aeneas writes its output into a -dest DIRECTORY; in the default (non-split)
+    # mode that is a single <Module>.lean. We declare both the dir (what aeneas
+    # writes) and a discrete <name>.lean (copied out of it) so a lean_library
+    # can consume the translation directly — discrete File inputs, no
+    # TreeArtifact. (Do NOT pass -split-files: that produces many files and
+    # breaks the single-file contract this rule provides.)
     out_dir = ctx.actions.declare_directory(ctx.label.name + ".lean_out")
+    out_file = ctx.actions.declare_file(ctx.label.name + ".lean")
 
     lines = [
         "#!/bin/bash",
@@ -31,22 +38,34 @@ def _aeneas_translate_impl(ctx):
         cmd += ' "{src}"'.format(src = llbc.path)
         lines.append(cmd)
 
+    # Copy the single generated module to the discrete output. Fail loudly if
+    # aeneas produced anything other than exactly one .lean (e.g. -split-files).
+    lines.append('produced=$(find "{out}" -name "*.lean")'.format(out = out_dir.path))
+    lines.append('n=$(printf "%s\\n" "$produced" | grep -c . || true)')
+    lines.append('if [ "$n" -ne 1 ]; then')
+    lines.append('    echo "aeneas_translate expects a single .lean module (non-split); got $n:" >&2')
+    lines.append('    printf "  %s\\n" $produced >&2')
+    lines.append('    exit 1')
+    lines.append('fi')
+    lines.append('cp $produced "{f}"'.format(f = out_file.path))
+
     script = ctx.actions.declare_file(ctx.label.name + "_translate.sh")
     ctx.actions.write(script, "\n".join(lines), is_executable = True)
 
     ctx.actions.run(
         executable = script,
         inputs = depset(ctx.files.srcs + toolchain.all_files),
-        outputs = [out_dir],
+        outputs = [out_dir, out_file],
         mnemonic = "AeneasTranslate",
         progress_message = "Translating LLBC to Lean via Aeneas %s" % ctx.label,
         execution_requirements = {"no-sandbox": "1"},
     )
 
     return [
-        DefaultInfo(files = depset([out_dir])),
+        # The discrete .lean is the default output so it feeds lean_library.
+        DefaultInfo(files = depset([out_file])),
         AeneasInfo(
-            lean_srcs = [out_dir],
+            lean_srcs = [out_file],
             llbc_file = ctx.files.srcs[0] if ctx.files.srcs else None,
         ),
     ]

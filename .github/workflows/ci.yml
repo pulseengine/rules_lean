@@ -233,3 +233,9 @@ jobs:
         working-directory: tests/charon_llbc
         run: bazel build @aeneas_lean_lib//:Aeneas
         timeout-minutes: 60
+      # Level 2: compile the aeneas-translated Lean against @aeneas_lean_lib —
+      # the translate -> compile bridge (kernel-checks the Rust model elaborates).
+      - name: Build hello_compiled (translate -> Lean -> compile)
+        working-directory: tests/charon_llbc
+        run: bazel build //:hello_compiled
+        timeout-minutes: 30

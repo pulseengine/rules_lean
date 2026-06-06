@@ -1,4 +1,5 @@
 load("@rules_lean//aeneas:defs.bzl", "aeneas_translate", "charon_llbc")
+load("@rules_lean//lean:defs.bzl", "lean_library")
 
 # Translate the tiny Rust crate to LLBC via Charon.
 charon_llbc(
@@ -29,29 +30,36 @@ echo "OK $$SIZE" > $@
     testonly = True,
 )
 
-# Level-1 end-to-end: translate the LLBC to Lean 4 via the Aeneas binary.
-# Exercises aeneas_translate (LLBC -> .lean) WITHOUT compiling the result, so it
-# does not trigger the heavy @aeneas_lean_lib build.
+# Level 1: translate the LLBC to a single Lean 4 module via the Aeneas binary.
 aeneas_translate(
     name = "hello_lean",
     srcs = [":hello_llbc"],
 )
 
-# Build-time assertion: Aeneas emitted at least one .lean file.
+# Build-time assertion: aeneas emitted a non-empty .lean module.
 genrule(
     name = "hello_lean_check",
     srcs = [":hello_lean"],
     outs = ["hello_lean_check.stamp"],
     cmd = """
 set -euo pipefail
-OUT_DIR=$(SRCS)
-LEAN_COUNT=$$(find "$$OUT_DIR" -name '*.lean' | wc -l | tr -d ' ')
-echo "aeneas_translate produced $$LEAN_COUNT .lean file(s) under $$OUT_DIR"
-if [ "$$LEAN_COUNT" -lt 1 ]; then
-    echo "ERROR: aeneas_translate produced no .lean files" >&2
+LEAN=$(SRCS)
+if [ ! -s "$$LEAN" ]; then
+    echo "ERROR: aeneas_translate produced an empty .lean module at $$LEAN" >&2
     exit 1
 fi
-echo "OK $$LEAN_COUNT" > $@
+echo "aeneas_translate produced $$LEAN ($$(wc -c < "$$LEAN") bytes)"
+echo "OK" > $@
 """,
     testonly = True,
+)
+
+# Level 2: COMPILE the translated Lean against the Aeneas support library.
+# This kernel-checks that the translation elaborates — the bridge from
+# "translates Rust" to "compiles the Rust model in Lean" (closes the
+# translate->compile gap modelled on rules_rocq_rust's rocq_library).
+lean_library(
+    name = "hello_compiled",
+    srcs = [":hello_lean"],
+    deps = ["@aeneas_lean_lib//:Aeneas"],
 )
