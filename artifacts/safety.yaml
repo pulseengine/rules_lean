@@ -6,7 +6,7 @@ artifacts:
   - id: L-001
     type: loss
     title: Undetected proof unsoundness
-    status: reviewed
+    status: approved
     description: >
       A Lean proof that type-checks in the build system is actually unsound
       due to toolchain misconfiguration, version mismatch, or incomplete
@@ -17,7 +17,7 @@ artifacts:
   - id: L-002
     type: loss
     title: Silent build corruption
-    status: reviewed
+    status: approved
     description: >
       Build artifacts (.olean files) are corrupted, stale, or produced by
       the wrong toolchain version, leading to downstream proof failures or
@@ -28,7 +28,7 @@ artifacts:
   - id: L-003
     type: loss
     title: Supply-chain compromise of toolchain
-    status: reviewed
+    status: approved
     description: >
       A tampered Lean binary or Mathlib olean set is downloaded and used,
       potentially introducing a malicious prover that accepts invalid proofs.
@@ -38,7 +38,7 @@ artifacts:
   - id: L-004
     type: loss
     title: Loss of reproducibility
-    status: reviewed
+    status: approved
     description: >
       Builds produce different results on different platforms or at different
       times due to non-hermetic inputs, making verification results unreliable
@@ -53,7 +53,7 @@ artifacts:
   - id: H-001
     type: hazard
     title: Lean compiler version mismatch with Mathlib oleans
-    status: reviewed
+    status: approved
     description: >
       The Lean compiler version used for compilation differs from the version
       used to build Mathlib oleans, causing olean format incompatibility.
@@ -69,7 +69,7 @@ artifacts:
   - id: H-002
     type: hazard
     title: SHA-256 hash verification bypassed or missing
-    status: reviewed
+    status: approved
     description: >
       Toolchain archive is downloaded without SHA-256 verification, allowing
       a tampered binary to be used. Empty sha256 strings disable verification
@@ -83,7 +83,7 @@ artifacts:
   - id: H-003
     type: hazard
     title: LEAN_PATH includes stale or incorrect directories
-    status: reviewed
+    status: approved
     description: >
       The LEAN_PATH environment variable points to directories containing
       oleans from a previous build, a different Lean version, or a wrong
@@ -99,7 +99,7 @@ artifacts:
   - id: H-004
     type: hazard
     title: Source file symlink resolution exposes wrong file content
-    status: reviewed
+    status: approved
     description: >
       Bazel's execroot uses symlinks for source files. If symlink targets
       change between analysis and execution (TOCTOU), the compiler may
@@ -113,7 +113,7 @@ artifacts:
   - id: H-005
     type: hazard
     title: Platform-specific binary used on wrong platform
-    status: reviewed
+    status: approved
     description: >
       Bazel's toolchain resolution selects a Lean binary for the wrong
       platform (e.g., darwin_aarch64 binary on linux_x86_64), leading to
@@ -127,7 +127,7 @@ artifacts:
   - id: H-006
     type: hazard
     title: Non-hermetic Mathlib fetch produces inconsistent oleans
-    status: reviewed
+    status: approved
     description: >
       The mathlib_repo rule uses network access (lake exe cache get) during
       fetch. If the cache server returns different oleans across builds
@@ -141,7 +141,7 @@ artifacts:
   - id: H-007
     type: hazard
     title: Sandbox disabled allows untracked host dependencies
-    status: reviewed
+    status: approved
     description: >
       The no-sandbox execution requirement means Lean actions can access
       host filesystem resources not declared as inputs. Changes to host
@@ -249,7 +249,7 @@ artifacts:
   - id: CTRL-001
     type: controller
     title: Bazel build system
-    status: reviewed
+    status: approved
     description: >
       The Bazel build system orchestrates toolchain resolution, action
       scheduling, input/output tracking, and caching. It controls which
@@ -264,7 +264,7 @@ artifacts:
   - id: CTRL-002
     type: controller
     title: Module extension (lean/extensions.bzl)
-    status: reviewed
+    status: approved
     description: >
       The Lean module extension configures toolchain downloads, Mathlib
       fetching, and toolchain registration. It mediates between the user's
@@ -279,7 +279,7 @@ artifacts:
   - id: CTRL-003
     type: controller
     title: lean_library rule implementation
-    status: reviewed
+    status: approved
     description: >
       The lean_library rule creates compilation actions for each .lean
       source file. It computes LEAN_PATH, manages source file copying,
@@ -294,7 +294,7 @@ artifacts:
   - id: CTRL-004
     type: controller
     title: Developer
-    status: reviewed
+    status: approved
     description: >
       The developer writes MODULE.bazel configuration (version, SHA-256
       hashes), BUILD.bazel rules, and .lean source files. They decide
@@ -305,7 +305,7 @@ artifacts:
   - id: CP-001
     type: controlled-process
     title: Lean compilation process
-    status: reviewed
+    status: approved
     description: >
       The process of invoking the Lean compiler binary on source files
       to produce .olean outputs or typecheck proofs. Includes module
@@ -314,7 +314,7 @@ artifacts:
   - id: CP-002
     type: controlled-process
     title: Toolchain download and setup
-    status: reviewed
+    status: approved
     description: >
       The process of downloading Lean binaries from GitHub releases,
       extracting archives, setting permissions, and registering toolchains.
@@ -322,7 +322,7 @@ artifacts:
   - id: CP-003
     type: controlled-process
     title: Mathlib fetch and olean consolidation
-    status: reviewed
+    status: approved
     description: >
       The process of downloading Mathlib sources via lake, fetching
       pre-built oleans from the Mathlib cloud cache, and consolidating
@@ -335,7 +335,7 @@ artifacts:
   - id: CA-001
     type: control-action
     title: Select toolchain for platform
-    status: reviewed
+    status: approved
     description: >
       Bazel selects the appropriate Lean toolchain based on the execution
       platform's OS and CPU constraints.
@@ -350,7 +350,7 @@ artifacts:
   - id: CA-002
     type: control-action
     title: Download and extract Lean archive
-    status: reviewed
+    status: approved
     description: >
       The lean_release repository rule downloads the Lean 4 binary archive
       from GitHub releases and extracts it.
@@ -365,7 +365,7 @@ artifacts:
   - id: CA-003
     type: control-action
     title: Set LEAN_PATH for compilation
-    status: reviewed
+    status: approved
     description: >
       The lean_library rule constructs the LEAN_PATH environment variable
       from stdlib, dependency oleans, and the output directory.
@@ -380,7 +380,7 @@ artifacts:
   - id: CA-004
     type: control-action
     title: Invoke lean compiler on source file
-    status: reviewed
+    status: approved
     description: >
       The lean_library rule invokes the lean binary on a copied source
       file with -o flag to produce an olean output.
@@ -395,7 +395,7 @@ artifacts:
   - id: CA-005
     type: control-action
     title: Fetch Mathlib oleans via lake
-    status: reviewed
+    status: approved
     description: >
       The mathlib_repo rule invokes lake to download Mathlib source and
       pre-built oleans, then consolidates them into lib/.
@@ -414,7 +414,7 @@ artifacts:
   - id: UCA-001
     type: uca
     title: Extension provides mismatched Lean version to Mathlib fetch
-    status: reviewed
+    status: approved
     description: >
       The module extension passes a different lean_version to mathlib_repo
       than the version used for lean_release, causing Mathlib to be fetched
@@ -437,7 +437,7 @@ artifacts:
   - id: UCA-002
     type: uca
     title: Extension provides empty SHA-256 for production builds
-    status: reviewed
+    status: approved
     description: >
       The extension allows empty SHA-256 strings (from KNOWN_VERSIONS or
       user overrides), causing Bazel to download without hash verification.
@@ -460,7 +460,7 @@ artifacts:
   - id: UCA-003
     type: uca
     title: lean_library includes stale LEAN_PATH from previous dep version
-    status: reviewed
+    status: approved
     description: >
       A dependency's olean path from a previous build is included in
       LEAN_PATH because Bazel's cache returns a stale LeanInfo provider.
@@ -481,7 +481,7 @@ artifacts:
   - id: UCA-004
     type: uca
     title: Source copy action omitted, lean receives symlink
-    status: reviewed
+    status: approved
     description: >
       The _copy_src helper fails or is bypassed, passing the original
       symlinked source file to lean instead of a dereferenced copy.
@@ -502,7 +502,7 @@ artifacts:
   - id: UCA-005
     type: uca
     title: Toolchain hub registers wrong platform constraints
-    status: reviewed
+    status: approved
     description: >
       The _PLATFORM_CONSTRAINTS map or _PLATFORM_ARTIFACT map contains
       incorrect mappings, causing Bazel to select a binary for the wrong
@@ -524,7 +524,7 @@ artifacts:
   - id: UCA-006
     type: uca
     title: Mathlib olean consolidation misses packages
-    status: reviewed
+    status: approved
     description: >
       The shell script that copies oleans from .lake/packages/*/build/lib/lean/
       fails to find oleans due to Lake directory structure changes, leaving
@@ -623,7 +623,7 @@ artifacts:
   - id: LS-001
     type: loss-scenario
     title: Lean version upgrade without Mathlib version bump
-    status: reviewed
+    status: approved
     description: >
       Developer changes lean.toolchain(version="4.28.0") but forgets to
       update lean.mathlib(rev="v4.28.0"). The extension passes lean_version
@@ -644,7 +644,7 @@ artifacts:
   - id: LS-002
     type: loss-scenario
     title: New platform added with wrong artifact name mapping
-    status: reviewed
+    status: approved
     description: >
       A new Lean release adds a platform (e.g., linux_riscv64). A developer
       adds it to ALL_PLATFORMS but with the wrong _PLATFORM_ARTIFACT mapping.
@@ -664,7 +664,7 @@ artifacts:
   - id: LS-003
     type: loss-scenario
     title: Lake changes olean output directory structure
-    status: reviewed
+    status: approved
     description: >
       A Lake version update changes the build output path from
       .lake/packages/<name>/.lake/build/lib/lean/ to a new layout
@@ -685,7 +685,7 @@ artifacts:
   - id: LS-004
     type: loss-scenario
     title: GitHub CDN serves tampered Lean binary without hash check
-    status: reviewed
+    status: approved
     description: >
       An attacker compromises a GitHub CDN edge or performs a MITM attack.
       The downloaded lean archive has a different SHA-256 but the hash
@@ -706,7 +706,7 @@ artifacts:
   - id: LS-005
     type: loss-scenario
     title: Bazel cache serves stale LeanInfo after dependency version change
-    status: reviewed
+    status: approved
     description: >
       Developer updates a dependency's Lean version in MODULE.bazel but
       Bazel's analysis cache still holds the old LeanInfo provider with
@@ -729,7 +729,7 @@ artifacts:
   - id: LS-006
     type: loss-scenario
     title: Code change removes _copy_src call, lean receives symlinked source
-    status: reviewed
+    status: approved
     description: >
       A refactor of lean.bzl removes or bypasses the _copy_src helper,
       passing the original source file (a symlink in the execroot) directly
