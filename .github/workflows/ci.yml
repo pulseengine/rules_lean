@@ -214,6 +214,11 @@ jobs:
         working-directory: tests/charon_llbc
         run: bazel build //:hello_lean_check
         timeout-minutes: 20
+      - name: Show the generated Lean (what Aeneas produced)
+        working-directory: tests/charon_llbc
+        run: |
+          echo "===== generated hello_lean.lean ====="
+          cat bazel-bin/hello_lean.lean
 
   build-aeneas-lean-lib:
     name: Aeneas Lean lib build (#7 shallow-fetch)
