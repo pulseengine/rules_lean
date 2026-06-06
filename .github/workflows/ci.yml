@@ -214,6 +214,11 @@ jobs:
         working-directory: tests/charon_llbc
         run: bazel build //:hello_lean_check
         timeout-minutes: 20
+      - name: Show the generated Lean (what Aeneas produced)
+        working-directory: tests/charon_llbc
+        run: |
+          echo "===== generated hello_lean.lean ====="
+          cat bazel-bin/hello_lean.lean
 
   build-aeneas-lean-lib:
     name: Aeneas Lean lib build (#7 shallow-fetch)
@@ -233,3 +238,14 @@ jobs:
         working-directory: tests/charon_llbc
         run: bazel build @aeneas_lean_lib//:Aeneas
         timeout-minutes: 60
+      # Level 2: compile the aeneas-translated Lean against @aeneas_lean_lib —
+      # the translate -> compile bridge (kernel-checks the Rust model elaborates).
+      - name: Build hello_compiled (translate -> Lean -> compile)
+        working-directory: tests/charon_llbc
+        run: bazel build //:hello_compiled
+        timeout-minutes: 30
+      # Verify: kernel-check the proofs about the translated Rust (zero sorry/axiom).
+      - name: Test hello_verified (Rust properties proved in Lean)
+        working-directory: tests/charon_llbc
+        run: bazel test //:hello_verified --test_output=errors
+        timeout-minutes: 30

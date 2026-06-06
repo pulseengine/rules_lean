@@ -42,7 +42,19 @@ use_repo(
     "aeneas_lean_lib",
 )
 
+# Lean toolchain to COMPILE the aeneas-translated Lean + write proofs against it.
+# Must match @aeneas_lean_lib's lean_version (4.28.0-rc1) so the oleans are
+# compatible. Dev-mode (require_hashes=False) since rules_lean stably pins only
+# 4.27.0/4.29.1 — this RC is downloaded directly.
+lean = use_extension("@rules_lean//lean:extensions.bzl", "lean")
+lean.toolchain(
+    version = "4.28.0-rc1",
+    require_hashes = False,
+)
+use_repo(lean, "lean_toolchains")
+
 register_toolchains(
     "@charon_toolchains//:all",
     "@aeneas_toolchains//:all",
+    "@lean_toolchains//:all",
 )

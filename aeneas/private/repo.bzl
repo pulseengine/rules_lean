@@ -232,17 +232,36 @@ def _aeneas_lean_lib_impl(rctx):
         fail("mkdir lib failed:\n" + mk.stderr)
     consolidate = rctx.execute(["sh", "-c", """
         set -e
+        # Lake v4 stores oleans under .lake/build/lib/lean/<Module>/...; prefer
+        # that level so modules land FLAT in lib/ (lib/Aeneas.olean), which is
+        # what `import Aeneas` resolves against the path_marker dir. Copying the
+        # outer .../lib/. instead would nest them at lib/lean/Aeneas.olean and
+        # break resolution. `break` after the first match picks the right level.
         for pkg_dir in backends/lean/.lake/packages/*/; do
-            for lib_dir in "${pkg_dir}.lake/build/lib" "${pkg_dir}build/lib"; do
+            for lib_dir in "${pkg_dir}.lake/build/lib/lean" "${pkg_dir}.lake/build/lib" "${pkg_dir}build/lib/lean" "${pkg_dir}build/lib"; do
                 if [ -d "$lib_dir" ] && ls "$lib_dir"/ >/dev/null 2>&1; then
                     cp -R "$lib_dir"/. lib/
+                    break
                 fi
             done
         done
-        # Also copy the Aeneas library itself
-        if [ -d "backends/lean/.lake/build/lib" ]; then
-            cp -R backends/lean/.lake/build/lib/. lib/
-        fi
+        # Mathlib is a LOCAL-PATH dep (the #7 shallow-fetch redirect), so its
+        # oleans build under mathlib4_src/.lake/build — NOT .lake/packages — and
+        # would otherwise be missed, breaking `import Mathlib` (which Aeneas
+        # transitively needs). Same handling as @mathlib's own consolidation.
+        for lib_dir in mathlib4_src/.lake/build/lib/lean mathlib4_src/.lake/build/lib; do
+            if [ -d "$lib_dir" ] && ls "$lib_dir"/ >/dev/null 2>&1; then
+                cp -R "$lib_dir"/. lib/
+                break
+            fi
+        done
+        # The Aeneas library itself.
+        for lib_dir in backends/lean/.lake/build/lib/lean backends/lean/.lake/build/lib; do
+            if [ -d "$lib_dir" ] && ls "$lib_dir"/ >/dev/null 2>&1; then
+                cp -R "$lib_dir"/. lib/
+                break
+            fi
+        done
     """])
     if consolidate.return_code != 0:
         fail("Aeneas olean consolidation copy failed:\n" + consolidate.stdout + "\n" + consolidate.stderr)
