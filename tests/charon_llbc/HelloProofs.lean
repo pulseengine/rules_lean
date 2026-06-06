@@ -27,6 +27,5 @@ theorem add.spec (x y : U32) (h : x.val + y.val ≤ U32.max) :
 theorem identity.spec (x : U64) :
     identity x ⦃ y => y = x ⦄ := by
   unfold identity
-  step
 
 end hello
