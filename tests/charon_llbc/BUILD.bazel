@@ -1,5 +1,5 @@
 load("@rules_lean//aeneas:defs.bzl", "aeneas_translate", "charon_llbc")
-load("@rules_lean//lean:defs.bzl", "lean_library")
+load("@rules_lean//lean:defs.bzl", "lean_library", "lean_proof_test")
 
 # Translate the tiny Rust crate to LLBC via Charon.
 charon_llbc(
@@ -62,4 +62,16 @@ lean_library(
     name = "hello_compiled",
     srcs = [":hello_lean"],
     deps = ["@aeneas_lean_lib//:Aeneas"],
+)
+
+# Verify: prove properties about the translated Rust functions and kernel-check
+# them (zero sorry/axiom). The verification payoff — Rust correctness proved in
+# Lean, modelled on rules_rocq_rust's point_proofs.v.
+lean_proof_test(
+    name = "hello_verified",
+    srcs = ["HelloProofs.lean"],
+    deps = [
+        ":hello_compiled",
+        "@aeneas_lean_lib//:Aeneas",
+    ],
 )
