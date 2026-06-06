@@ -245,6 +245,16 @@ def _aeneas_lean_lib_impl(rctx):
                 fi
             done
         done
+        # Mathlib is a LOCAL-PATH dep (the #7 shallow-fetch redirect), so its
+        # oleans build under mathlib4_src/.lake/build — NOT .lake/packages — and
+        # would otherwise be missed, breaking `import Mathlib` (which Aeneas
+        # transitively needs). Same handling as @mathlib's own consolidation.
+        for lib_dir in mathlib4_src/.lake/build/lib/lean mathlib4_src/.lake/build/lib; do
+            if [ -d "$lib_dir" ] && ls "$lib_dir"/ >/dev/null 2>&1; then
+                cp -R "$lib_dir"/. lib/
+                break
+            fi
+        done
         # The Aeneas library itself.
         for lib_dir in backends/lean/.lake/build/lib/lean backends/lean/.lake/build/lib; do
             if [ -d "$lib_dir" ] && ls "$lib_dir"/ >/dev/null 2>&1; then
