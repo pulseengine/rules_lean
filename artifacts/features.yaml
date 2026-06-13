@@ -93,7 +93,7 @@ artifacts:
   - id: FEAT-006
     type: feature
     title: Aeneas LLBC-to-Lean translation
-    status: in_progress
+    status: implemented
     description: >
       Downloads pre-built Aeneas binaries from GitHub releases. Provides
       aeneas_translate rule for converting Charon LLBC files to Lean 4

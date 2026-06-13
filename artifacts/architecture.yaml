@@ -6,7 +6,7 @@ artifacts:
   - id: DD-001
     type: design-decision
     title: Per-platform toolchain download with SHA-256 registry
-    status: accepted
+    status: approved
     description: >
       Download pre-built Lean 4 binaries from GitHub releases for each
       supported platform. Maintain a KNOWN_VERSIONS registry in
@@ -33,7 +33,7 @@ artifacts:
   - id: DD-002
     type: design-decision
     title: Single version string for Lean and Mathlib
-    status: accepted
+    status: approved
     description: >
       The module extension uses the same version string from
       lean.toolchain(version=...) as the lean_version parameter passed to
@@ -54,7 +54,7 @@ artifacts:
   - id: DD-003
     type: design-decision
     title: Per-file ctx.actions.run with lean as executable
-    status: accepted
+    status: approved
     description: >
       Compile each .lean source file in a separate ctx.actions.run() call
       with the lean binary as the executable. Each action declares its
@@ -79,7 +79,7 @@ artifacts:
   - id: DD-004
     type: design-decision
     title: Source file copy via cp -L before lean invocation
-    status: accepted
+    status: approved
     description: >
       Each source .lean file is copied into bazel-out/ via cp -L
       (dereference symlinks) before being passed to the lean compiler.
@@ -103,7 +103,7 @@ artifacts:
   - id: DD-005
     type: design-decision
     title: Platform constraint mapping with artifact name translation
-    status: accepted
+    status: approved
     description: >
       Maintain two maps: _PLATFORM_CONSTRAINTS (Bazel constraint labels)
       and _PLATFORM_ARTIFACT (Lean release archive names). The hub repo
@@ -127,7 +127,7 @@ artifacts:
   - id: DD-006
     type: design-decision
     title: Mathlib fetch via lake with olean consolidation
-    status: accepted
+    status: approved
     description: >
       Download Lean toolchain within the mathlib_repo rule, create a
       lakefile pinned to the specified revision, run lake exe cache get
@@ -155,7 +155,7 @@ artifacts:
   - id: DD-007
     type: design-decision
     title: Charon toolchain via prebuilt downloads + Rust sysroot (pure Bazel)
-    status: accepted
+    status: approved
     description: >
       Download Charon's prebuilt release binaries from GitHub plus the
       matching Rust nightly sysroot (rustc, rust-std, rustc-dev, rust-src)
