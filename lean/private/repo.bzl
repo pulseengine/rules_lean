@@ -180,25 +180,36 @@ def _mathlib_repo_impl(rctx):
     if result.return_code != 0:
         fail("lake update failed:\n" + result.stderr)
 
-    # Download pre-built oleans (fast path)
+    # Download pre-built oleans (fast path). Retry a few times to ride out
+    # transient upstream cache misses: `lake exe cache get` can return 0 yet
+    # leave gaps when Mathlib's Azure cache is momentarily incomplete ("some
+    # files were not found in the cache").
+    for attempt in range(3):
+        result = rctx.execute(
+            [str(lake), "exe", "cache", "get"],
+            environment = env,
+            timeout = 1200,
+            quiet = False,
+        )
+        if result.return_code == 0:
+            break
+        # buildifier: disable=print
+        print("WARNING: `lake exe cache get` attempt {} failed; retrying.".format(attempt + 1))
+
+    # ALWAYS follow with `lake build Mathlib` — the canonical Mathlib workflow.
+    # It is a fast no-op when the cache supplied every olean, and fills any the
+    # cache was missing. Building only on a non-zero `cache get` (as before) let
+    # a 0-exit-but-incomplete cache through, leaving lib/Mathlib empty and
+    # tripping the consolidation check downstream (an intermittent nightly
+    # failure when upstream Mathlib cache was incomplete).
     result = rctx.execute(
-        [str(lake), "exe", "cache", "get"],
+        [str(lake), "build", "Mathlib"],
         environment = env,
-        timeout = 1200,
+        timeout = 7200,
         quiet = False,
     )
     if result.return_code != 0:
-        # Pre-built cache may be unavailable — fall back to building from source
-        # buildifier: disable=print
-        print("WARNING: pre-built Mathlib cache unavailable, building from source (this will take a long time)...")
-        result = rctx.execute(
-            [str(lake), "build", "Mathlib"],
-            environment = env,
-            timeout = 7200,
-            quiet = False,
-        )
-        if result.return_code != 0:
-            fail("Failed to build Mathlib:\n" + result.stderr)
+        fail("Failed to build Mathlib (after cache get):\n" + result.stderr)
 
     # Consolidate all package oleans into lib/
     # Lake v4 stores oleans at: .lake/packages/<name>/.lake/build/lib/lean/<Module>/...
