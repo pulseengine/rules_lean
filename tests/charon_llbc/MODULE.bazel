@@ -15,17 +15,21 @@ aeneas.charon_toolchain(
     version = "build-2026.04.22.081730-2d35584fb79ef804c50f106d8c40bd3728284f8d",
 )
 
-# Aeneas binary toolchain (LLBC -> Lean). DEV-MODE pin (no sha256 yet):
+# Aeneas binary toolchain (LLBC -> Lean), hermetically pinned:
 #   - version/rev: aeneas build-2026.04.22 — same day as the charon pin above,
 #     so the LLBC formats line up.
 #   - lean_version 4.28.0-rc1 is what this aeneas's backends/lean/lean-toolchain
-#     requires (Aeneas tracks bleeding-edge Lean; rules_lean only stably pins
-#     4.27.0/4.29.1, so the Lean lib build uses this RC directly).
-# Pin sha256 hashes once the end-to-end build is confirmed green.
+#     requires (Aeneas tracks bleeding-edge Lean; now in _KNOWN_VERSIONS).
+#   - sha256: per-platform hashes of the aeneas-<platform>.tar.gz binaries.
 aeneas.toolchain(
     version = "build-2026.04.22.084123-1a8946778f0934266d63564c2aac74ec1fff4b68",
     rev = "1a8946778f0934266d63564c2aac74ec1fff4b68",
     lean_version = "4.28.0-rc1",
+    sha256 = {
+        "macos_aarch64": "62393cd005c67290fc38cf0e4361f9bf242b73e695aa1777bd7685023a60db09",
+        "macos_x86_64": "6320148064af0c98c556f27c66077309869e585da449776c53dde65d21da6ae2",
+        "linux_x86_64": "f0b9e245c11eae567ab57317e91fca3fc090a246d2ebdb8d618d8d70b90c8ecc",
+    },
 )
 
 use_repo(
@@ -44,13 +48,10 @@ use_repo(
 
 # Lean toolchain to COMPILE the aeneas-translated Lean + write proofs against it.
 # Must match @aeneas_lean_lib's lean_version (4.28.0-rc1) so the oleans are
-# compatible. Dev-mode (require_hashes=False) since rules_lean stably pins only
-# 4.27.0/4.29.1 — this RC is downloaded directly.
+# compatible. 4.28.0-rc1 is now in _KNOWN_VERSIONS with hashes, so this is fully
+# hash-verified (require_hashes defaults True).
 lean = use_extension("@rules_lean//lean:extensions.bzl", "lean")
-lean.toolchain(
-    version = "4.28.0-rc1",
-    require_hashes = False,
-)
+lean.toolchain(version = "4.28.0-rc1")
 use_repo(lean, "lean_toolchains")
 
 register_toolchains(
