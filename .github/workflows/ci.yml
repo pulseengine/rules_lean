@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: bazelbuild/setup-bazelisk@v3
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/bazel
           key: bazel-verify-${{ runner.os }}-${{ hashFiles('MODULE.bazel') }}
@@ -40,7 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: bazelbuild/setup-bazelisk@v3
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/bazel
           key: bazel-build-${{ runner.os }}-${{ hashFiles('MODULE.bazel') }}
@@ -130,7 +130,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: bazelbuild/setup-bazelisk@v3
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/bazel
           key: bazel-mathlib-${{ runner.os }}-${{ hashFiles('MODULE.bazel') }}
@@ -173,7 +173,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: bazelbuild/setup-bazelisk@v3
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/bazel
           key: bazel-charon-${{ runner.os }}-${{ hashFiles('tests/charon_smoke/MODULE.bazel') }}
@@ -196,7 +196,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: bazelbuild/setup-bazelisk@v3
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/bazel
           key: bazel-charonllbc-${{ runner.os }}-${{ hashFiles('tests/charon_llbc/MODULE.bazel') }}
@@ -226,7 +226,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: bazelbuild/setup-bazelisk@v3
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/bazel
           key: bazel-aeneaslib-${{ runner.os }}-${{ hashFiles('tests/charon_llbc/MODULE.bazel') }}
