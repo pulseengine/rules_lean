@@ -16,7 +16,7 @@ jobs:
     name: Verify rules load
     runs-on: [self-hosted, linux, x64, light]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: bazelbuild/setup-bazelisk@v3
       - uses: actions/cache@v6
         with:
@@ -38,7 +38,7 @@ jobs:
           - [self-hosted, linux, x64, rust-cpu]
           - macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: bazelbuild/setup-bazelisk@v3
       - uses: actions/cache@v6
         with:
@@ -75,7 +75,7 @@ jobs:
     name: Test SHA-256 enforcement
     runs-on: [self-hosted, linux, x64, light]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: bazelbuild/setup-bazelisk@v3
       - name: Verify missing hash fails
         run: |
@@ -113,7 +113,7 @@ jobs:
     name: Verify all platform downloads (CC-005)
     runs-on: [self-hosted, linux, x64, light]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: bazelbuild/setup-bazelisk@v3
       - name: Verify all 4 platform archives download + extract with correct SHA-256
         run: |
@@ -128,7 +128,7 @@ jobs:
     name: Build mathlib proofs (Linux)
     runs-on: [self-hosted, linux, x64, rust-cpu]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: bazelbuild/setup-bazelisk@v3
       - uses: actions/cache@v6
         with:
@@ -156,7 +156,7 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, linux, x64, rust-cpu]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: bazelbuild/setup-bazelisk@v3
       - name: Cold cache (force Mathlib re-fetch + olean re-consolidation)
         run: bazel clean --expunge
@@ -171,7 +171,7 @@ jobs:
     name: Charon toolchain smoke (Linux)
     runs-on: [self-hosted, linux, x64, rust-cpu]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: bazelbuild/setup-bazelisk@v3
       - uses: actions/cache@v6
         with:
@@ -194,7 +194,7 @@ jobs:
     name: Charon LLBC translation (Linux)
     runs-on: [self-hosted, linux, x64, rust-cpu]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: bazelbuild/setup-bazelisk@v3
       - uses: actions/cache@v6
         with:
@@ -224,7 +224,7 @@ jobs:
     name: Aeneas Lean lib build (#7 shallow-fetch)
     runs-on: [self-hosted, linux, x64, rust-cpu]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: bazelbuild/setup-bazelisk@v3
       - uses: actions/cache@v6
         with:
