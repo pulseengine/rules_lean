@@ -1,0 +1,34 @@
+load("@rules_lean//aeneas:defs.bzl", "aeneas_translate", "charon_llbc")
+
+# Aeneas coverage experiment on a real relay primitive (CRC32).
+# Rust -> LLBC (Charon) -> Lean (Aeneas). Translate-only: reveals what Aeneas
+# can handle from relay's `plain` verification code, without the heavy compile.
+charon_llbc(
+    name = "crc32_llbc",
+    srcs = ["src/lib.rs"],
+    crate_name = "crc32",
+    crate_root = "src/lib.rs",
+)
+
+aeneas_translate(
+    name = "crc32_lean",
+    srcs = [":crc32_llbc"],
+)
+
+# Assert Aeneas produced a non-empty module.
+genrule(
+    name = "crc32_lean_check",
+    srcs = [":crc32_lean"],
+    outs = ["crc32_lean_check.stamp"],
+    cmd = """
+set -euo pipefail
+LEAN=$(SRCS)
+if [ ! -s "$$LEAN" ]; then
+    echo "ERROR: aeneas produced an empty module at $$LEAN" >&2
+    exit 1
+fi
+echo "aeneas translated relay CRC32 -> $$LEAN ($$(wc -c < "$$LEAN") bytes)"
+echo "OK" > $@
+""",
+    testonly = True,
+)
