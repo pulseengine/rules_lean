@@ -249,3 +249,26 @@ jobs:
         working-directory: tests/charon_llbc
         run: bazel test //:hello_verified --test_output=errors
         timeout-minutes: 30
+
+  relay-coverage:
+    name: Aeneas coverage — real relay primitive (Linux)
+    runs-on: [self-hosted, linux, x64, rust-cpu]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazelbuild/setup-bazelisk@v3
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/bazel
+          key: bazel-relaycov-${{ runner.os }}-${{ hashFiles('tests/relay_coverage/MODULE.bazel') }}
+          restore-keys: bazel-relaycov-${{ runner.os }}-
+      # Translate a real relay `plain` primitive (CRC32) to Lean and print it —
+      # coverage discovery for relay's verification-oriented Rust.
+      - name: Translate relay CRC32 (Rust -> LLBC -> Lean)
+        working-directory: tests/relay_coverage
+        run: bazel build //:crc32_lean_check
+        timeout-minutes: 20
+      - name: Show the generated Lean
+        working-directory: tests/relay_coverage
+        run: |
+          echo "===== generated crc32_lean.lean ====="
+          cat bazel-bin/crc32_lean.lean
