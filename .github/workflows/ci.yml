@@ -264,11 +264,20 @@ jobs:
       # Translate a real relay `plain` primitive (CRC32) to Lean and print it —
       # coverage discovery for relay's verification-oriented Rust.
       - name: Translate relay CRC32 (Rust -> LLBC -> Lean)
+        id: translate
         working-directory: tests/relay_coverage
         run: bazel build //:crc32_lean_check
         timeout-minutes: 20
-      - name: Show the generated Lean
+        continue-on-error: true
+      - name: Show Aeneas output (full on success, partial on error)
         working-directory: tests/relay_coverage
         run: |
-          echo "===== generated crc32_lean.lean ====="
-          cat bazel-bin/crc32_lean.lean
+          echo "===== Aeneas-generated Lean (may be partial if it errored) ====="
+          # no-sandbox action writes into out_dir even when it errors mid-way.
+          f=$(find bazel-bin bazel-out -name 'Crc32Llbc.lean' 2>/dev/null | head -1)
+          [ -n "$f" ] && cat "$f" || echo "(no output produced)"
+      - name: Fail if translation failed
+        if: steps.translate.outcome != 'success'
+        run: |
+          echo "Aeneas translation of relay CRC32 did not succeed (see partial output above)."
+          exit 1
