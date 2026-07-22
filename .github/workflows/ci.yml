@@ -249,3 +249,35 @@ jobs:
         working-directory: tests/charon_llbc
         run: bazel test //:hello_verified --test_output=errors
         timeout-minutes: 30
+
+  relay-coverage:
+    name: Aeneas coverage — real relay primitive (Linux)
+    runs-on: [self-hosted, linux, x64, rust-cpu]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazelbuild/setup-bazelisk@v3
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/bazel
+          key: bazel-relaycov-${{ runner.os }}-${{ hashFiles('tests/relay_coverage/MODULE.bazel') }}
+          restore-keys: bazel-relaycov-${{ runner.os }}-
+      # Translate a real relay `plain` primitive (CRC32) to Lean and print it —
+      # coverage discovery for relay's verification-oriented Rust.
+      - name: Translate relay CRC32 (Rust -> LLBC -> Lean)
+        id: translate
+        working-directory: tests/relay_coverage
+        run: bazel build //:crc32_lean_check
+        timeout-minutes: 20
+        continue-on-error: true
+      - name: Show Aeneas output (full on success, partial on error)
+        working-directory: tests/relay_coverage
+        run: |
+          echo "===== Aeneas-generated Lean (may be partial if it errored) ====="
+          # no-sandbox action writes into out_dir even when it errors mid-way.
+          f=$(find bazel-bin bazel-out -name 'Crc32Llbc.lean' 2>/dev/null | head -1)
+          [ -n "$f" ] && cat "$f" || echo "(no output produced)"
+      - name: Fail if translation failed
+        if: steps.translate.outcome != 'success'
+        run: |
+          echo "Aeneas translation of relay CRC32 did not succeed (see partial output above)."
+          exit 1

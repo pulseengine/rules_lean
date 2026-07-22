@@ -1,0 +1,46 @@
+module(name = "test_relay_coverage", version = "0.0.0")
+
+bazel_dep(name = "rules_lean", version = "0.1.0")
+local_path_override(
+    module_name = "rules_lean",
+    path = "../..",
+)
+
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "platforms", version = "0.0.11")
+bazel_dep(name = "rules_shell", version = "0.3.0")
+
+# Charon + Aeneas binary toolchains (translate-only; no lean toolchain needed).
+aeneas = use_extension("@rules_lean//aeneas:extensions.bzl", "aeneas")
+aeneas.charon_toolchain(
+    version = "build-2026.04.22.081730-2d35584fb79ef804c50f106d8c40bd3728284f8d",
+)
+aeneas.toolchain(
+    version = "build-2026.04.22.084123-1a8946778f0934266d63564c2aac74ec1fff4b68",
+    rev = "1a8946778f0934266d63564c2aac74ec1fff4b68",
+    lean_version = "4.28.0-rc1",
+    sha256 = {
+        "macos_aarch64": "62393cd005c67290fc38cf0e4361f9bf242b73e695aa1777bd7685023a60db09",
+        "macos_x86_64": "6320148064af0c98c556f27c66077309869e585da449776c53dde65d21da6ae2",
+        "linux_x86_64": "f0b9e245c11eae567ab57317e91fca3fc090a246d2ebdb8d618d8d70b90c8ecc",
+    },
+)
+
+use_repo(
+    aeneas,
+    "charon_toolchains",
+    "charon_macos_aarch64",
+    "charon_macos_x86_64",
+    "charon_linux_x86_64",
+    "charon_linux_aarch64",
+    "aeneas_toolchains",
+    "aeneas_macos_aarch64",
+    "aeneas_macos_x86_64",
+    "aeneas_linux_x86_64",
+    "aeneas_lean_lib",
+)
+
+register_toolchains(
+    "@charon_toolchains//:all",
+    "@aeneas_toolchains//:all",
+)
