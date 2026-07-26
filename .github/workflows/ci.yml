@@ -254,7 +254,7 @@ jobs:
     name: Aeneas coverage — real relay primitive (Linux)
     runs-on: [self-hosted, linux, x64, rust-cpu]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: bazelbuild/setup-bazelisk@v3
       - uses: actions/cache@v4
         with:
