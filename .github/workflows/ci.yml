@@ -256,7 +256,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: bazelbuild/setup-bazelisk@v3
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/bazel
           key: bazel-relaycov-${{ runner.os }}-${{ hashFiles('tests/relay_coverage/MODULE.bazel') }}
