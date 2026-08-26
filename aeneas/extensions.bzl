@@ -56,21 +56,6 @@ _KNOWN_CHARON_VERSIONS = {
     },
 }
 
-def _detect_host_platform(module_ctx):
-    os_name = module_ctx.os.name.lower()
-    os_arch = module_ctx.os.arch.lower()
-
-    if "mac" in os_name or "darwin" in os_name:
-        if "aarch64" in os_arch or "arm64" in os_arch:
-            return "macos_aarch64"
-        return "macos_x86_64"
-    elif "linux" in os_name:
-        if "aarch64" in os_arch or "arm64" in os_arch:
-            return "linux_aarch64"
-        return "linux_x86_64"
-    else:
-        fail("Unsupported host platform for Aeneas: {} {}".format(os_name, os_arch))
-
 _AeneasToolchainTag = tag_class(attrs = {
     "version": attr.string(mandatory = True, doc = "Aeneas release tag"),
     "rev": attr.string(mandatory = True, doc = "Aeneas git commit hash (for lean lib source)"),
@@ -139,19 +124,12 @@ def _aeneas_impl(module_ctx):
             platforms = ALL_AENEAS_PLATFORMS,
         )
 
-        # Build the Aeneas Lean support library
-        host_platform = _detect_host_platform(module_ctx)
-
-        lean_platform_map = {
-            "macos_aarch64": "darwin_aarch64",
-            "macos_x86_64": "darwin_x86_64",
-            "linux_x86_64": "linux_x86_64",
-            "linux_aarch64": "linux_aarch64",
-        }
-
+        # Build the Aeneas Lean support library. Host platform is resolved
+        # inside `aeneas_lean_lib`'s own implementation (repository_ctx, at
+        # actual fetch time), not detected here and passed down as an
+        # attribute — see lean/private/host_platform.bzl for why.
         aeneas_lean_lib(
             name = "aeneas_lean_lib",
-            host_platform = lean_platform_map[host_platform],
             lean_version = lean_version,
             aeneas_rev = rev,
         )
