@@ -30,21 +30,6 @@ _KNOWN_VERSIONS = {
     },
 }
 
-def _detect_host_platform(module_ctx):
-    os_name = module_ctx.os.name.lower()
-    os_arch = module_ctx.os.arch.lower()
-
-    if "mac" in os_name or "darwin" in os_name:
-        if "aarch64" in os_arch or "arm64" in os_arch:
-            return "darwin_aarch64"
-        return "darwin_x86_64"
-    elif "linux" in os_name:
-        if "aarch64" in os_arch or "arm64" in os_arch:
-            return "linux_aarch64"
-        return "linux_x86_64"
-    else:
-        fail("Unsupported host platform: {} {}".format(os_name, os_arch))
-
 _LeanToolchainTag = tag_class(attrs = {
     "version": attr.string(mandatory = True, doc = "Lean 4 version (e.g. '4.27.0')"),
     "sha256": attr.string_dict(default = {}, doc = "Per-platform SHA-256 overrides (keys: darwin_aarch64, etc.)"),
@@ -122,7 +107,9 @@ def _lean_impl(module_ctx):
     )
 
     # ── Mathlib (optional) ───────────────────────────────────────────────
-    host_platform = _detect_host_platform(module_ctx)
+    # Host platform is NOT detected here: it must be resolved inside
+    # `mathlib_repo`'s own implementation (repository_ctx, at actual fetch
+    # time), not passed down as an attribute — see host_platform.bzl for why.
 
     # Select ONE Mathlib rev with the same root-precedence rule as the toolchain
     # loop above: the root module wins, so a consumer can always override a
@@ -184,7 +171,6 @@ def _lean_impl(module_ctx):
 
         mathlib_repo(
             name = "mathlib",
-            host_platform = host_platform,
             lean_version = version,
             mathlib_rev = mathlib_rev,
         )

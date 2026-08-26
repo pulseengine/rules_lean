@@ -1,5 +1,6 @@
 "Repository rules for downloading Aeneas and its Lean support library."
 
+load("//lean/private:host_platform.bzl", "detect_host_platform")
 load(
     "//lean/private:mathlib_fetch.bzl",
     "rewrite_git_require_to_local",
@@ -126,7 +127,7 @@ lean_prebuilt_library(
 
 def _aeneas_lean_lib_impl(rctx):
     version = rctx.attr.lean_version
-    platform = rctx.attr.host_platform
+    platform = detect_host_platform(rctx)
 
     # Platform artifact mapping (same as lean toolchain)
     artifact_map = {
@@ -274,7 +275,6 @@ aeneas_lean_lib = repository_rule(
     doc = "Builds the Aeneas Lean support library from source.",
     attrs = {
         "lean_version": attr.string(mandatory = True),
-        "host_platform": attr.string(mandatory = True),
         "aeneas_rev": attr.string(mandatory = True, doc = "Git commit hash for aeneas source"),
         "sha256": attr.string(default = ""),
     },

@@ -1,5 +1,6 @@
 "Repository rules for downloading Lean 4 toolchain and Mathlib."
 
+load("//lean/private:host_platform.bzl", "detect_host_platform")
 load("//lean/private:mathlib_fetch.bzl", "shallow_fetch_mathlib")
 
 ALL_PLATFORMS = [
@@ -137,7 +138,7 @@ require mathlib from "{path}"
 
 def _mathlib_repo_impl(rctx):
     version = rctx.attr.lean_version
-    platform = rctx.attr.host_platform
+    platform = detect_host_platform(rctx)
     artifact = _PLATFORM_ARTIFACT.get(platform, platform)
 
     # Download lean toolchain directly (avoids cross-repo references in bzlmod)
@@ -296,7 +297,6 @@ mathlib_repo = repository_rule(
     doc = "Fetches Mathlib4 pre-built oleans via lake.",
     attrs = {
         "lean_version": attr.string(mandatory = True),
-        "host_platform": attr.string(mandatory = True, doc = "Host platform for lean download (e.g. darwin_aarch64)"),
         "mathlib_rev": attr.string(mandatory = True, doc = "Mathlib4 git revision or tag"),
     },
 )
