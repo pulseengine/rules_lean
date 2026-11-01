@@ -16,9 +16,9 @@ jobs:
     name: Verify rules load
     runs-on: [self-hosted, linux, x64, light]
     steps:
-      - uses: actions/checkout@v7
-      - uses: bazelbuild/setup-bazelisk@v3
-      - uses: actions/cache@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: bazelbuild/setup-bazelisk@b39c379c82683a5f25d34f0d062761f62693e0b2 # v3
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/bazel
           key: bazel-verify-${{ runner.os }}-${{ hashFiles('MODULE.bazel') }}
@@ -38,9 +38,9 @@ jobs:
           - [self-hosted, linux, x64, rust-cpu]
           - macos-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: bazelbuild/setup-bazelisk@v3
-      - uses: actions/cache@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: bazelbuild/setup-bazelisk@b39c379c82683a5f25d34f0d062761f62693e0b2 # v3
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/bazel
           key: bazel-build-${{ runner.os }}-${{ hashFiles('MODULE.bazel') }}
@@ -75,8 +75,8 @@ jobs:
     name: Test SHA-256 enforcement
     runs-on: [self-hosted, linux, x64, light]
     steps:
-      - uses: actions/checkout@v7
-      - uses: bazelbuild/setup-bazelisk@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: bazelbuild/setup-bazelisk@b39c379c82683a5f25d34f0d062761f62693e0b2 # v3
       - name: Verify missing hash fails
         run: |
           cd tests/missing_hash
@@ -113,8 +113,8 @@ jobs:
     name: Verify all platform downloads (CC-005)
     runs-on: [self-hosted, linux, x64, light]
     steps:
-      - uses: actions/checkout@v7
-      - uses: bazelbuild/setup-bazelisk@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: bazelbuild/setup-bazelisk@b39c379c82683a5f25d34f0d062761f62693e0b2 # v3
       - name: Verify all 4 platform archives download + extract with correct SHA-256
         run: |
           cd tests/platform_hashes
@@ -128,9 +128,9 @@ jobs:
     name: Build mathlib proofs (Linux)
     runs-on: [self-hosted, linux, x64, rust-cpu]
     steps:
-      - uses: actions/checkout@v7
-      - uses: bazelbuild/setup-bazelisk@v3
-      - uses: actions/cache@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: bazelbuild/setup-bazelisk@b39c379c82683a5f25d34f0d062761f62693e0b2 # v3
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/bazel
           key: bazel-mathlib-${{ runner.os }}-${{ hashFiles('MODULE.bazel') }}
@@ -156,8 +156,8 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, linux, x64, rust-cpu]
     steps:
-      - uses: actions/checkout@v7
-      - uses: bazelbuild/setup-bazelisk@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: bazelbuild/setup-bazelisk@b39c379c82683a5f25d34f0d062761f62693e0b2 # v3
       - name: Cold cache (force Mathlib re-fetch + olean re-consolidation)
         run: bazel clean --expunge
       - name: Build ℝ proof from a clean cache
@@ -171,9 +171,9 @@ jobs:
     name: Charon toolchain smoke (Linux)
     runs-on: [self-hosted, linux, x64, rust-cpu]
     steps:
-      - uses: actions/checkout@v7
-      - uses: bazelbuild/setup-bazelisk@v3
-      - uses: actions/cache@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: bazelbuild/setup-bazelisk@b39c379c82683a5f25d34f0d062761f62693e0b2 # v3
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/bazel
           key: bazel-charon-${{ runner.os }}-${{ hashFiles('tests/charon_smoke/MODULE.bazel') }}
@@ -194,9 +194,9 @@ jobs:
     name: Charon LLBC translation (Linux)
     runs-on: [self-hosted, linux, x64, rust-cpu]
     steps:
-      - uses: actions/checkout@v7
-      - uses: bazelbuild/setup-bazelisk@v3
-      - uses: actions/cache@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: bazelbuild/setup-bazelisk@b39c379c82683a5f25d34f0d062761f62693e0b2 # v3
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/bazel
           key: bazel-charonllbc-${{ runner.os }}-${{ hashFiles('tests/charon_llbc/MODULE.bazel') }}
@@ -224,9 +224,9 @@ jobs:
     name: Aeneas Lean lib build (#7 shallow-fetch)
     runs-on: [self-hosted, linux, x64, rust-cpu]
     steps:
-      - uses: actions/checkout@v7
-      - uses: bazelbuild/setup-bazelisk@v3
-      - uses: actions/cache@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: bazelbuild/setup-bazelisk@b39c379c82683a5f25d34f0d062761f62693e0b2 # v3
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/bazel
           key: bazel-aeneaslib-${{ runner.os }}-${{ hashFiles('tests/charon_llbc/MODULE.bazel') }}
@@ -254,9 +254,9 @@ jobs:
     name: Aeneas coverage — real relay primitive (Linux)
     runs-on: [self-hosted, linux, x64, rust-cpu]
     steps:
-      - uses: actions/checkout@v7
-      - uses: bazelbuild/setup-bazelisk@v3
-      - uses: actions/cache@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: bazelbuild/setup-bazelisk@b39c379c82683a5f25d34f0d062761f62693e0b2 # v3
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/bazel
           key: bazel-relaycov-${{ runner.os }}-${{ hashFiles('tests/relay_coverage/MODULE.bazel') }}
