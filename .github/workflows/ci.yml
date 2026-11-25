@@ -57,6 +57,25 @@ jobs:
         run: bazel build //examples/multi_file:multi
       - name: Test multi_file
         run: bazel test //examples/multi_file:multi_test
+      - name: lean_proof_test passes a clean file with an axiom check
+        run: bazel test //tests/proof_gate:clean_test
+      # Negative controls: Lean exits 0 on `sorry`, so the rule must catch it,
+      # and a theorem built on an unlisted axiom must fail its axiom check.
+      - name: lean_proof_test fails on a planted sorry and a planted axiom
+        run: |
+          set -u
+          check() {
+            target="$1"; reason="$2"
+            if bazel build "$target" > out.log 2>&1; then
+              cat out.log; echo "FAIL-OPEN: $target built, expected: $reason"; exit 1
+            fi
+            if ! grep -qF "$reason" out.log; then
+              cat out.log; echo "ERROR: $target failed, but not with: $reason"; exit 1
+            fi
+            echo "PASS: $target refused ($reason)"
+          }
+          check //tests/proof_gate:planted_sorry_test "a declaration uses 'sorry'"
+          check //tests/proof_gate:planted_axiom_test "depends on cheat, which is not in allowed_axioms"
       - name: Verify source copies are not symlinks (LS-006)
         run: |
           # _copy_src must produce real files, not symlinks

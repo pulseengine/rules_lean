@@ -1,0 +1,24 @@
+load("//lean:defs.bzl", "lean_proof_test")
+
+# Negative controls for lean_proof_test (pulseengine/rules_lean). CI builds the
+# two planted targets and requires them to FAIL with the named reason; `manual`
+# keeps them out of `bazel build //...`.
+
+lean_proof_test(
+    name = "clean_test",
+    srcs = ["Clean.lean"],
+    axiom_checks = {"Clean.lean": ["ok"]},
+)
+
+lean_proof_test(
+    name = "planted_sorry_test",
+    srcs = ["Sorry.lean"],
+    tags = ["manual"],
+)
+
+lean_proof_test(
+    name = "planted_axiom_test",
+    srcs = ["ExtraAxiom.lean"],
+    axiom_checks = {"ExtraAxiom.lean": ["two_is_three"]},
+    tags = ["manual"],
+)
