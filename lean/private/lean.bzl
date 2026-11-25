@@ -39,6 +39,45 @@ def _collect_dep_info(deps):
         depset(direct = direct_stamps, transitive = transitive_stamp_depsets),
     )
 
+# lean_proof_test's per-file check. Lean exits 0 on `sorry` (it is a warning),
+# so the exit code alone cannot carry "proved". This script fails on:
+#   - a non-zero lean exit;
+#   - any "declaration uses `sorry`" warning (either quote style), unless allow_sorry = True;
+#   - a theorem named in axiom_checks that depends on an axiom outside
+#     allowed_axioms, or that `#print axioms` did not report at all.
+# Args: lean src stamp display allow_sorry allowed_csv theorems_csv [extra flags...]
+_PROOF_CHECK_SH = """#!/bin/bash
+set -uo pipefail
+lean="$1"; src="$2"; stamp="$3"; shown="$4"; allow_sorry="$5"; allowed="$6"; theorems="$7"
+shift 7
+out="$("$lean" "$@" "$src" 2>&1)"; rc=$?
+printf '%s\\n' "$out"
+if [ "$rc" -ne 0 ]; then echo "lean_proof_test: $shown: lean exited $rc" >&2; exit "$rc"; fi
+if [ "$allow_sorry" != 1 ] && printf '%s\\n' "$out" | grep -qE "declaration uses .sorry."; then
+  echo "lean_proof_test: $shown: a declaration uses 'sorry' (set allow_sorry = True to accept)" >&2
+  exit 1
+fi
+fail=0
+want=()
+[ -z "$theorems" ] || IFS=, read -r -a want <<< "$theorems"
+for t in ${want[@]+"${want[@]}"}; do
+  [ -n "$t" ] || continue
+  line="$(printf '%s\\n' "$out" | grep -F "'$t' " | grep -E "depends on axioms|does not depend on any axioms" | head -1)"
+  if [ -z "$line" ]; then
+    echo "lean_proof_test: $shown: no axiom report for $t (is the name right?)" >&2; fail=1; continue
+  fi
+  case "$line" in *"does not depend on any axioms"*) continue ;; esac
+  used="$(printf '%s' "$line" | sed -e 's/.*depends on axioms: \\[//' -e 's/\\].*//')"
+  IFS=, read -r -a axs <<< "$used"
+  for a in "${axs[@]}"; do
+    a="$(printf '%s' "$a" | tr -d ' ')"
+    case ",$allowed," in *",$a,"*) ;; *) echo "lean_proof_test: $shown: $t depends on $a, which is not in allowed_axioms" >&2; fail=1 ;; esac
+  done
+done
+[ "$fail" -eq 0 ] || exit 1
+touch "$stamp"
+"""
+
 def _copy_src(ctx, src, rel):
     """Copy a source file into the build output tree (dereferences symlinks).
 
@@ -194,15 +233,38 @@ def _lean_proof_test_impl(ctx):
         # Copy source into build tree (Lean resolves symlinks)
         src_copy = _copy_src(ctx, src, rel)
 
+        base = src.basename
+        theorems = ctx.attr.axiom_checks.get(base, [])
+        check_src = src_copy
+        if theorems:
+            # Append one `#print axioms` per named theorem to a copy of the file,
+            # so Lean itself reports what each theorem depends on.
+            check_src = ctx.actions.declare_file(ctx.label.name + "_axcheck/" + rel)
+            ctx.actions.run_shell(
+                inputs = [src_copy],
+                outputs = [check_src],
+                command = 'src="$1"; dst="$2"; shift 2; cat "$src" > "$dst" && printf "\\n" >> "$dst" && for t in "$@"; do printf "#print axioms %s\\n" "$t" >> "$dst"; done',
+                arguments = [src_copy.path, check_src.path] + theorems,
+                mnemonic = "LeanAxiomCheckSrc",
+            )
+
         check_stamp = ctx.actions.declare_file(ctx.label.name + "_check_%d" % i)
         check_script = ctx.actions.declare_file(ctx.label.name + "_check_%d.sh" % i)
-        ctx.actions.write(check_script, '#!/bin/bash\n"$1" "$2" && touch "$3"\n', is_executable = True)
+        ctx.actions.write(check_script, _PROOF_CHECK_SH, is_executable = True)
 
         ctx.actions.run(
             executable = check_script,
-            arguments = [toolchain.lean.path, src_copy.path, check_stamp.path],
+            arguments = [
+                toolchain.lean.path,
+                check_src.path,
+                check_stamp.path,
+                src.short_path,
+                "1" if ctx.attr.allow_sorry else "0",
+                ",".join(ctx.attr.allowed_axioms),
+                ",".join(theorems),
+            ] + ctx.attr.extra_flags,
             inputs = depset(
-                [src_copy] + dep_files,
+                [check_src] + dep_files,
                 transitive = [depset(toolchain.all_files)],
             ),
             outputs = [check_stamp],
@@ -242,7 +304,7 @@ def _lean_proof_test_impl(ctx):
 
 lean_proof_test = rule(
     implementation = _lean_proof_test_impl,
-    doc = "Verifies that Lean 4 source files typecheck (proofs are valid).",
+    doc = "Verifies that Lean 4 source files typecheck, contain no `sorry` (unless allow_sorry), and that named theorems use only allowed axioms.",
     attrs = {
         "srcs": attr.label_list(
             allow_files = [".lean"],
@@ -255,7 +317,19 @@ lean_proof_test = rule(
         ),
         "extra_flags": attr.string_list(
             default = [],
-            doc = "Additional flags passed to the lean compiler.",
+            doc = "Additional flags passed to lean for every file.",
+        ),
+        "allow_sorry": attr.bool(
+            default = False,
+            doc = "Accept `sorry`. Off by default: Lean only warns on `sorry`, so without this check an unfinished proof passes.",
+        ),
+        "axiom_checks": attr.string_list_dict(
+            default = {},
+            doc = "File basename -> theorem names. For each, Lean's `#print axioms` output must list only allowed_axioms, and a missing report fails.",
+        ),
+        "allowed_axioms": attr.string_list(
+            default = ["propext", "Quot.sound", "Classical.choice"],
+            doc = "Axioms a theorem in axiom_checks may depend on. Lean's three standard axioms by default.",
         ),
     },
     test = True,

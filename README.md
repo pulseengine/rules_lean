@@ -77,14 +77,30 @@ Compiles Lean 4 `.lean` source files and produces `.olean` outputs.
 
 ### `lean_proof_test`
 
-Test rule that verifies `.lean` proofs type-check (proofs are valid).
-Verification happens at build time; the test reports success.
+Test rule that verifies `.lean` proofs type-check, contain no `sorry`, and,
+for the theorems you name, use only the axioms you allow. Verification
+happens at build time; the test reports success. Lean itself only warns on
+`sorry` and exits 0, so the rule reads Lean's output rather than its exit code.
 
-| Attribute     | Type          | Default | Description |
-|---------------|---------------|---------|-------------|
-| `srcs`        | label_list    | required | `.lean` source files to verify |
-| `deps`        | label_list    | `[]`     | `lean_library` or `lean_prebuilt_library` targets |
-| `extra_flags` | string_list   | `[]`     | Additional flags passed to `lean` |
+| Attribute        | Type              | Default | Description |
+|------------------|-------------------|---------|-------------|
+| `srcs`           | label_list        | required | `.lean` source files to verify |
+| `deps`           | label_list        | `[]`     | `lean_library` or `lean_prebuilt_library` targets |
+| `extra_flags`    | string_list       | `[]`     | Additional flags passed to `lean` for every file |
+| `allow_sorry`    | bool              | `False`  | Accept `sorry`. Off by default |
+| `axiom_checks`   | string_list_dict  | `{}`     | File basename to theorem names. Each must be reported by `#print axioms` and depend only on `allowed_axioms` |
+| `allowed_axioms` | string_list       | `["propext", "Quot.sound", "Classical.choice"]` | Axioms a checked theorem may use |
+
+```starlark
+lean_proof_test(
+    name = "proofs_test",
+    srcs = ["Proofs.lean"],
+    axiom_checks = {"Proofs.lean": ["main_theorem"]},
+)
+```
+
+`tests/proof_gate` holds the negative controls CI runs: a planted `sorry` and a
+theorem built on an unlisted axiom, both of which must fail.
 
 ### `lean_prebuilt_library`
 
